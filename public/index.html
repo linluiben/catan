@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inselreich</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,5 93,28 93,72 50,95 7,72 7,28' fill='%23f2c94c' stroke='%233a7bd5' stroke-width='8'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Startseite -->
+  <section id="lobby" class="screen">
+    <header class="hero">
+      <h1>⬡ Inselreich</h1>
+      <p>Siedeln, handeln, segeln – im Browser mit Freunden, auf deinem eigenen Server.</p>
+    </header>
+    <div class="lobby-grid">
+      <div class="card">
+        <h2>Dein Name</h2>
+        <input id="nameInput" maxlength="20" placeholder="Name">
+        <div id="pwRow" hidden>
+          <h3>Server-Passwort</h3>
+          <input id="pwInput" type="password" placeholder="Passwort">
+        </div>
+        <h2>Raum beitreten</h2>
+        <div class="row">
+          <input id="codeInput" maxlength="5" placeholder="Raum-Code" style="text-transform:uppercase">
+          <button id="joinBtn">Beitreten</button>
+        </div>
+        <h3>Offene Räume <button id="refreshBtn" class="small ghost" title="Aktualisieren">⟳</button></h3>
+        <ul id="roomList" class="room-list"></ul>
+      </div>
+      <div class="card">
+        <h2>Neues Spiel</h2>
+        <label>Raumname <input id="roomNameInput" maxlength="20" placeholder="z. B. Spieleabend"></label>
+        <label>Spielfeld <select id="scenarioSelect"></select></label>
+        <label>Siegpunkte <input id="vpInput" type="number" min="3" max="30" placeholder="Standard"></label>
+        <button id="createBtn" class="primary">Raum erstellen</button>
+        <h3>…oder von einer Stellung starten</h3>
+        <p class="hint">Lade eine zuvor exportierte Spielstand-Datei (<code>.json</code>). Das Spiel wird genau an dieser Stelle fortgesetzt. Eigene Stellungen kannst du im Spiel mit dem ✏️ Editor bauen.</p>
+        <label class="file">📂 Spielstand laden <input id="loadFile" type="file" accept=".json,application/json"></label>
+      </div>
+    </div>
+    <footer class="foot">Inselreich – freies Hobbyprojekt. Nicht verbunden mit kommerziellen Brettspielverlagen.</footer>
+  </section>
+
+  <!-- Raum / Spiel -->
+  <section id="roomScreen" class="screen" hidden>
+    <div id="topbar">
+      <div class="tb-left">
+        <button id="leaveBtn" class="ghost small" title="Raum verlassen">←</button>
+        <strong id="roomTitle"></strong>
+        <span class="code" id="roomCode" title="Einladungslink kopieren"></span>
+      </div>
+      <div id="statusLine"></div>
+      <div class="tb-right">
+        <button id="editorBtn" class="small ghost" hidden title="Freie Stellung bearbeiten">✏️ Editor</button>
+        <button id="exportBtn" class="small ghost" hidden title="Spielstand als Datei speichern">💾 Speichern</button>
+        <label id="loadInGame" class="small ghost file" hidden title="Spielstand in diesen Raum laden">📂<input id="loadFile2" type="file" accept=".json,application/json"></label>
+        <button id="helpBtn" class="small ghost" title="Spielregeln">?</button>
+      </div>
+    </div>
+    <div id="main">
+      <div id="boardWrap">
+        <div id="waiting" hidden></div>
+        <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="dice"></div>
+      </div>
+      <aside id="side">
+        <div id="players"></div>
+        <div id="panel"></div>
+        <div id="hand"></div>
+        <div class="tabs">
+          <button data-tab="log" class="active">Verlauf</button>
+          <button data-tab="chat">Chat <span id="chatBadge"></span></button>
+        </div>
+        <div id="log" class="tabpane"></div>
+        <div id="chat" class="tabpane" hidden>
+          <div id="chatMsgs"></div>
+          <form id="chatForm"><input id="chatInput" maxlength="300" placeholder="Nachricht…" autocomplete="off"><button>➤</button></form>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <div id="toast"></div>
+  <div id="overlay" hidden><div id="overlayBox"></div></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
