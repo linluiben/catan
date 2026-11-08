@@ -141,3 +141,52 @@ test('Editor: Häfen setzen, ändern, entfernen – Handelsverhältnis greift', 
   assert.strictEqual(G.act(st, 0, { type: 'edit', op: 'harbor', edge: inland.id, harborType: 'any' }).ok, false);
   assert.strictEqual(G.act(st, 0, { type: 'edit', op: 'harbor', edge: coast.id, harborType: '__proto__' }).ok, false);
 });
+
+test('Editor: Zugreihenfolge ändern – alle Verweise wandern mit', () => {
+  // Mitten im Spiel: Gebäude, Straßen, Karten, Sonderkarten vorhanden
+  const st = G.newGame({ scenario: 'archipel', players: [{ name: 'A', bot: true }, { name: 'B', bot: true }, { name: 'C', bot: true }] });
+  let k = 0;
+  while (k++ < 400 && st.phase !== 'ended') { for (let s = 0; s < 3; s++) { const a = Bot.decide(st, s); if (a) { G.act(st, s, a); break; } } }
+  G.act(st, 0, { type: 'edit', op: 'toggle' });
+  const snapshot = (s) => ({
+    name: s.players.map(p => p.name),
+    byName: Object.fromEntries(s.players.map(p => [p.name, {
+      res: p.res, dev: p.dev.length, knights: p.knights,
+      buildings: Object.keys(s.buildings).filter(v => s.buildings[v].owner === p.seat).sort().join(','),
+      roads: Object.keys(s.roads).filter(e => s.roads[e] === p.seat).sort().join(','),
+      ships: Object.keys(s.ships).filter(e => s.ships[e].owner === p.seat).sort().join(','),
+      vp: G.victoryPoints(s, p.seat, true), lr: s.longestRoad === p.seat, la: s.largestArmy === p.seat,
+    }])),
+    turnName: s.players[s.turn].name,
+  });
+  const before = snapshot(st);
+  // [C, A, B]
+  assert.ok(G.act(st, 0, { type: 'edit', op: 'reorder', order: [2, 0, 1] }).ok);
+  const after = snapshot(st);
+  assert.deepStrictEqual(after.name, [before.name[2], before.name[0], before.name[1]]);
+  assert.deepStrictEqual(after.byName, before.byName, 'Besitz/Karten/Punkte gehören weiter denselben Spielern');
+  assert.strictEqual(after.turnName, before.turnName, 'wer am Zug ist, bleibt am Zug');
+  st.players.forEach((p, i) => assert.strictEqual(p.seat, i));
+  // Nächster Zug folgt der neuen Reihenfolge
+  G.act(st, 0, { type: 'edit', op: 'startAt', seat: st.players.findIndex(p => p.name === 'C'), rolled: true });
+  assert.ok(G.act(st, st.turn, { type: 'endTurn' }).ok);
+  assert.strictEqual(st.players[st.turn].name, 'A', 'nach C kommt jetzt A');
+  // Ungültige Reihenfolgen
+  G.act(st, 0, { type: 'edit', op: 'toggle' });
+  for (const order of [[0, 1], [0, 0, 1], [0, 1, 5], 'abc', null]) {
+    assert.strictEqual(G.act(st, 0, { type: 'edit', op: 'reorder', order }).ok, false, JSON.stringify(order));
+  }
+});
+
+test('Editor: Zugreihenfolge in der Gründung nur vor der ersten Siedlung', () => {
+  const st = G.newGame({ scenario: 'classic', players: [{ name: 'A' }, { name: 'B' }, { name: 'C' }] });
+  G.act(st, 0, { type: 'edit', op: 'toggle' });
+  assert.ok(G.act(st, 0, { type: 'edit', op: 'reorder', order: [1, 2, 0] }).ok);
+  assert.deepStrictEqual(st.players.map(p => p.name), ['B', 'C', 'A']);
+  assert.strictEqual(st.players[st.setup.order[0]].name, 'B', 'B beginnt die Gründung');
+  G.act(st, 0, { type: 'edit', op: 'toggle' });
+  const v = G.settlementSpots(st, 0, true)[0];
+  assert.ok(G.act(st, 0, { type: 'build', what: 'settlement', id: v }).ok);
+  G.act(st, 0, { type: 'edit', op: 'toggle' });
+  assert.strictEqual(G.act(st, 0, { type: 'edit', op: 'reorder', order: [0, 2, 1] }).ok, false);
+});

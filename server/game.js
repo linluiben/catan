@@ -786,6 +786,12 @@ function editAction(st, a) {
       st.scenario.vpTarget = n;
       break;
     }
+    case 'reorder': {
+      // Zugreihenfolge ändern: order = bisherige Sitzplätze in neuer Reihenfolge, z. B. [2, 0, 1]
+      reorderSeats(st, a.order);
+      log(st, `🔀 Neue Zugreihenfolge: ${st.players.map(p => p.name).join(' → ')}.`);
+      break;
+    }
     case 'startAt': {
       const p = seatOK(Number(a.seat));
       // Heimatinseln aus der aktuellen Stellung ableiten, falls noch keine bekannt
@@ -815,6 +821,50 @@ function editAction(st, a) {
     default: fail('Unbekannte Editor-Aktion.');
   }
   updateSpecials(st);
+}
+
+// Sitzplätze umsortieren und dabei JEDEN Verweis auf einen Sitzplatz mitnehmen.
+function reorderSeats(st, order) {
+  const n = st.players.length;
+  if (!Array.isArray(order) || order.length !== n) fail('Ungültige Reihenfolge.');
+  const ord = order.map(Number);
+  if (ord.some(x => !Number.isInteger(x) || x < 0 || x >= n) || new Set(ord).size !== n) fail('Ungültige Reihenfolge.');
+  if (st.phase === 'setup' && st.setup && (st.setup.idx > 0 || st.setup.step !== 'settlement')) {
+    fail('Während der Gründungsphase geht das nur, bevor die erste Siedlung steht. Tipp: Stellung im Editor aufbauen und mit „Hier starten“ fortsetzen – danach ist die Reihenfolge frei änderbar.');
+  }
+  const map = [];
+  ord.forEach((oldSeat, newSeat) => { map[oldSeat] = newSeat; });
+  const m = (s) => (Number.isInteger(s) && s >= 0 && s < n ? map[s] : s);
+  const remapKeys = (obj) => {
+    const out = {};
+    for (const k of Object.keys(obj || {})) out[m(Number(k))] = obj[k];
+    return out;
+  };
+  st.players = ord.map((oldSeat, i) => ({ ...st.players[oldSeat], seat: i }));
+  for (const k in st.buildings) st.buildings[k].owner = m(st.buildings[k].owner);
+  for (const k in st.roads) st.roads[k] = m(st.roads[k]);
+  for (const k in st.ships) st.ships[k].owner = m(st.ships[k].owner);
+  st.turn = m(st.turn);
+  if (st.setup) {
+    // Noch niemand hat gesetzt: Schlangenreihenfolge in neuer Sitzordnung
+    const o = [];
+    for (let i = 0; i < n; i++) o.push(i);
+    for (let i = n - 1; i >= 0; i--) o.push(i);
+    st.setup.order = o;
+  }
+  st.pending = st.pending.map(pd => {
+    const q = { ...pd };
+    if (q.need) q.need = remapKeys(q.need);
+    if (q.seat !== undefined) q.seat = m(q.seat);
+    if (q.targets) q.targets = q.targets.map(m);
+    return q;
+  });
+  if (st.trade) st.trade = { ...st.trade, from: m(st.trade.from), responses: remapKeys(st.trade.responses) };
+  st.longestRoad = st.longestRoad === null ? null : m(st.longestRoad);
+  st.largestArmy = st.largestArmy === null ? null : m(st.largestArmy);
+  st.winner = st.winner === null || st.winner === undefined ? st.winner : m(st.winner);
+  st.roadLengths = ord.map(oldSeat => (st.roadLengths || [])[oldSeat] || 0);
+  return map;
 }
 
 // ---------------------------------------------------------------- Sicht für einen Spieler

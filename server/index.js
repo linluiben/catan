@@ -161,6 +161,12 @@ function broadcast(room) {
   scheduleBots(room);
 }
 
+// room.seats in neue Reihenfolge bringen (order = alte Indizes in neuer Reihenfolge)
+function applySeatOrder(room, order) {
+  room.seats = order.map(i => room.seats[i]);
+  room.seats.forEach((s, idx) => s.ws.forEach(w => { w.seat = idx; }));
+}
+
 function scheduleBots(room) {
   if (room.botTimer || !room.game || room.botsPaused) return;
   let actor = -1;
@@ -363,7 +369,11 @@ function handle(ws, m) {
       if (a.type === 'edit' && !isHost) return err('Nur der Gastgeber kann den Editor benutzen.');
       const r = G.act(room.game, seat, a);
       if (!r.ok) err(r.error);
-      else { room.botsPaused = false; room.botFails = 0; }
+      else {
+        room.botsPaused = false; room.botFails = 0;
+        // Neue Zugreihenfolge: Plätze (Name, Token, Verbindungen) wandern mit ihren Spielern mit
+        if (a.type === 'edit' && a.op === 'reorder') applySeatOrder(room, a.order.map(Number));
+      }
       return broadcast(room);
     }
     case 'export': {
@@ -429,6 +439,16 @@ function handle(ws, m) {
       s.claimable = true;
       s.ws.forEach(w => { w.room = null; w.seat = null; send(w, { t: 'kicked', msg: 'Dein Platz wurde vom Gastgeber freigegeben.' }); });
       s.ws.clear();
+      return broadcast(room);
+    }
+    case 'moveSeat': {
+      // Warteraum: Platz eins nach oben/unten schieben (bestimmt die Zugreihenfolge, wenn „beibehalten“ gewählt ist)
+      if (room.game) return err('Im laufenden Spiel bitte den Editor benutzen.');
+      const i = Number(m.seat), j = i + (m.dir < 0 ? -1 : 1);
+      if (!room.seats[i] || !room.seats[j]) return err('Ungültig.');
+      const order = room.seats.map((_, k) => k);
+      [order[i], order[j]] = [order[j], order[i]];
+      applySeatOrder(room, order);
       return broadcast(room);
     }
     case 'color': {

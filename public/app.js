@@ -355,6 +355,7 @@ function renderWaiting() {
     if (host || i === r.you) {
       h += `<span class="swatches">${COLORS.map(c => `<span class="swatch" data-a="color" data-seat="${i}" data-color="${c}" style="background:${c}"></span>`).join('')}</span>`;
     }
+    if (host) h += `<button class="small ghost" data-a="moveSeat" data-seat="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} title="Nach oben">▲</button><button class="small ghost" data-a="moveSeat" data-seat="${i}" data-dir="1" ${i === r.seats.length - 1 ? 'disabled' : ''} title="Nach unten">▼</button>`;
     if (host && i !== r.you) h += `<button class="small ghost" data-a="kick" data-seat="${i}" title="Entfernen">✖</button>`;
     h += '</div>';
   });
@@ -363,7 +364,7 @@ function renderWaiting() {
       ${r.local ? `<button data-a="addHuman" ${r.seats.length >= 6 ? 'disabled' : ''}>👤 Mitspieler an diesem Gerät</button>` : ''}</div>
       <label>Spielfeld <select id="optScenario">${sc.map(s => `<option value="${s.key}" ${s.key === r.options.scenario ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
       <label>Siegpunkte <input id="optVp" type="number" min="3" max="30" value="${r.options.vpTarget}"></label>
-      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="optKeepOrder" style="width:auto;display:inline"> Sitzreihenfolge beibehalten (sonst zufällig)</label>
+      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="optKeepOrder" style="width:auto;display:inline" ${S.keepOrder ? 'checked' : ''}> Reihenfolge wie oben (sonst zufällig)</label>
       <button class="primary" data-a="start" style="width:100%;margin-top:6px" ${cur && r.seats.length > cur.maxPlayers ? 'disabled' : ''}>Spiel starten</button>
       ${cur && r.seats.length > cur.maxPlayers ? `<p class="hint">Dieses Spielfeld ist für max. ${cur.maxPlayers} Spieler.</p>` : ''}
       <p class="hint">Tipp: Um von einer bestimmten Stellung zu starten, starte das Spiel und öffne dann den ✏️ Editor – oder lade oben mit 📂 einen gespeicherten Spielstand.</p>
@@ -377,6 +378,7 @@ function renderWaiting() {
   const os = $('optScenario');
   if (os) {
     os.onchange = () => send({ t: 'options', scenario: os.value });
+    $('optKeepOrder').onchange = (e) => { S.keepOrder = e.target.checked; };
     $('optVp').onchange = () => send({ t: 'options', vpTarget: Number($('optVp').value) });
   }
 }
@@ -388,6 +390,11 @@ $('waiting').onclick = (e) => {
   if (a === 'addBot') send({ t: 'addBot' });
   if (a === 'addHuman') { const n = prompt('Name des Mitspielers:'); if (n !== null) send({ t: 'addHuman', name: n }); }
   if (a === 'kick') send({ t: 'kick', seat: Number(b.dataset.seat) });
+  if (a === 'moveSeat' && !b.disabled) {
+    send({ t: 'moveSeat', seat: Number(b.dataset.seat), dir: Number(b.dataset.dir) });
+    const keep = $('optKeepOrder');
+    if (keep && !keep.checked) { keep.checked = true; S.keepOrder = true; }
+  }
   if (a === 'color') {
     if (isHost()) send({ t: 'color', seat: Number(b.dataset.seat), color: b.dataset.color });
     else toast('Nur der Gastgeber kann Farben ändern.');
@@ -792,6 +799,15 @@ function editorPanel(g) {
     ${g.players.map(p => `<button class="small" data-a="edev" data-seat="${p.seat}" data-d="1" title="${esc(p.name)} geben"><span class="swatch" style="background:${p.color}"></span>+</button>`).join('')}</div>
     <div class="hint">${g.players.map(p => `${esc(p.name)}: ${(p.dev || []).map(d => DEV_EMOJI[d.type]).join('') || '–'}`).join(' · ')}</div>
     <div class="row">${g.players.map(p => `<button class="small" data-a="edev" data-seat="${p.seat}" data-d="-1" title="${esc(p.name)} gewählte Karte wegnehmen"><span class="swatch" style="background:${p.color}"></span>−</button>`).join('')}</div>`;
+  const turnSeat = g.phase === 'setup' && g.setup ? g.setup.order[g.setup.idx] : g.turn;
+  h += `<div class="section-title">Zugreihenfolge</div>
+    ${g.players.map((p, i) => `<div class="seat-row"><span>${i + 1}.</span><span class="swatch" style="background:${p.color}"></span>
+      <span class="nm">${esc(p.name)}${p.seat === turnSeat ? ' <span class="badge">am Zug</span>' : ''}</span>
+      <button class="small ghost" data-a="eorder" data-seat="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} title="Früher dran">▲</button>
+      <button class="small ghost" data-a="eorder" data-seat="${i}" data-dir="1" ${i === g.players.length - 1 ? 'disabled' : ''} title="Später dran">▼</button></div>`).join('')}
+    <p class="hint">Nach Spieler ${g.players.length} ist wieder Spieler 1 dran. ${g.phase === 'setup'
+      ? 'Gründungsphase: Spieler 1 beginnt. Ändern geht nur, bevor die erste Siedlung steht.'
+      : 'Wer gerade am Zug ist, bleibt am Zug, danach gilt die neue Reihenfolge.'}</p>`;
   h += `<div class="section-title">Siegpunktziel</div><div class="row"><input id="eVp" type="number" min="3" max="30" value="${g.scenario.vpTarget}"><button data-a="evp">Setzen</button></div>`;
   h += `<div class="section-title">Von dieser Stellung aus weiterspielen</div><div class="row">
     <select id="eStart">${g.players.map(p => `<option value="${p.seat}" ${E.startSeat === p.seat ? 'selected' : ''}>${esc(p.name)} ist am Zug</option>`).join('')}</select>
@@ -862,6 +878,17 @@ $('panel').addEventListener('click', (e) => {
       return act({ type: 'edit', op: 'dev', seat: Number(d.seat), card: S.editor.dev, delta: Number(d.d) });
     }
     case 'evp': return act({ type: 'edit', op: 'vpTarget', value: Number($('eVp').value) });
+    case 'eorder': {
+      const i = Number(d.seat), j = i + Number(d.dir);
+      const order = g.players.map((_, k) => k);
+      if (!g.players[j]) return;
+      [order[i], order[j]] = [order[j], order[i]];
+      // Auswahl im Editor (Besitzer, Startspieler) folgt dem verschobenen Spieler
+      const follow = (s2) => (s2 === i ? j : s2 === j ? i : s2);
+      S.editor.owner = follow(S.editor.owner);
+      S.editor.startSeat = follow(S.editor.startSeat);
+      return act({ type: 'edit', op: 'reorder', order });
+    }
     case 'estart': {
       S.editor.startSeat = Number($('eStart').value);
       S.editor.rolled = $('eRolled').checked;

@@ -153,3 +153,44 @@ test('Server: übersteht kaputte Requests, Plätze nicht per Name kaperbar, Bret
   assert.ok(first && first.board, 'Neue Verbindung bekommt das Brett');
   [host, ben, mal].forEach(c => c.ws.close());
 });
+
+test('Server: nach Ändern der Zugreihenfolge behält jeder seinen Platz und seine Karten', async (t) => {
+  const { proc, port } = await startServer({});
+  t.after(() => proc.kill());
+  const conn = () => new Promise((resolve) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    const msgs = [];
+    ws.on('message', (raw) => msgs.push(JSON.parse(raw)));
+    ws.on('open', () => resolve({ ws, msgs }));
+  });
+  const last = (c) => [...c.msgs].reverse().find(m => m.t === 'room' && m.game);
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  const host = await conn();
+  host.ws.send(JSON.stringify({ t: 'create', name: 'Anna' }));
+  await wait(150);
+  const room = host.msgs.find(m => m.t === 'joined').room;
+  const ben = await conn();
+  ben.ws.send(JSON.stringify({ t: 'join', room, name: 'Ben' }));
+  await wait(150);
+  host.ws.send(JSON.stringify({ t: 'start', keepOrder: true }));
+  await wait(200);
+  host.ws.send(JSON.stringify({ t: 'action', action: { type: 'edit', op: 'toggle' } }));
+  host.ws.send(JSON.stringify({ t: 'action', action: { type: 'edit', op: 'res', seat: 1, res: 'ore', delta: 3 } }));
+  await wait(150);
+  host.ws.send(JSON.stringify({ t: 'action', action: { type: 'edit', op: 'reorder', order: [1, 0] } }));
+  await wait(200);
+  const hv = last(host), bv = last(ben);
+  assert.strictEqual(hv.room.you, 1, 'Anna sitzt jetzt auf Platz 2');
+  assert.strictEqual(bv.room.you, 0, 'Ben sitzt jetzt auf Platz 1');
+  assert.strictEqual(bv.game.players[bv.room.you].name, 'Ben');
+  assert.strictEqual(bv.game.players[bv.room.you].res.ore, 3, 'Ben hat weiter seine 3 Erz');
+  assert.strictEqual(hv.room.host, true, 'Anna bleibt Gastgeberin');
+  // Wiederverbinden mit Bens Token landet auf seinem neuen Platz
+  const token = ben.msgs.find(m => m.t === 'joined').token;
+  ben.ws.close();
+  const ben2 = await conn();
+  ben2.ws.send(JSON.stringify({ t: 'join', room, token }));
+  await wait(200);
+  assert.strictEqual(last(ben2).room.you, 0);
+  [host, ben2].forEach(c => c.ws.close());
+});
