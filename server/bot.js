@@ -119,7 +119,8 @@ function tryBankTrade(st, seat, target) {
   return null;
 }
 
-function decide(st, seat) {
+// peek=true: nur prüfen, ob der Bot etwas tun würde (ohne Zähler zu verändern)
+function decide(st, seat, peek = false) {
   if (st.phase === 'ended' || st.editor) return null;
   const p = st.players[seat];
   const L = G.legalFor(st, seat);
@@ -141,16 +142,16 @@ function decide(st, seat) {
     const gainsNew = RES.some(k => (t.give[k] || 0) > 0 && p.res[k] === 0);
     return { type: 'respondTrade', accept: keeps && gainsNew && total(t.give) >= total(t.get) };
   }
-  if (L.setup === 'settlement') return { type: 'build', what: 'settlement', id: bestVertex(st, L.settlement) };
+  if (L.setup === 'settlement') return L.settlement.length ? { type: 'build', what: 'settlement', id: bestVertex(st, L.settlement) } : null;
   if (L.setup === 'road') {
     const e = pickEdge(st, seat, L.road, L.ship) || fallbackEdge(L);
-    return { type: 'build', what: e.what, id: e.id };
+    return e ? { type: 'build', what: e.what, id: e.id } : null;
   }
   if (!L.myTurn) return null;
 
   const key = seat + ':' + st.turnNumber;
   const n = (counters.get(key) || 0) + 1;
-  counters.set(key, n);
+  if (!peek) counters.set(key, n);
   if (counters.size > 200) counters.delete(counters.keys().next().value);
   if (n > 40) return L.canEnd ? { type: 'endTurn' } : { type: 'roll' };
 

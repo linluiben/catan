@@ -86,3 +86,67 @@ test('Server: Sicherheits-Header, Passwort, Origin-Prüfung, Sperre', async (t) 
   const locked = await wsCall(port, { t: 'join', room: ok.room, name: 'B', password: 'geheim' });
   assert.match(locked.msg, /Fehlversuche/);
 });
+
+// ---------------------------------------------------------------- Regressionen aus dem Code-Review
+test('Engine: ungültiger Bautyp wird abgelehnt, Bot wirft in Randfällen nicht', () => {
+  const Bot = require('../server/bot');
+  const st = G.newGame({ scenario: 'classic', players: [{ name: 'A' }, { name: 'B' }] });
+  while (st.phase === 'setup') { const s = st.setup.order[st.setup.idx]; G.act(st, s, Bot.decide(st, s)); }
+  st.rolled = true;
+  for (const what of ['__proto__', 'constructor', 'dev', 'toString']) {
+    assert.strictEqual(G.act(st, st.turn, { type: 'build', what, id: 0 }).ok, false, what);
+  }
+  const st2 = G.newGame({ scenario: 'classic', players: [{ name: 'A', bot: true }, { name: 'B' }] });
+  const v = G.settlementSpots(st2, 0, true)[0];
+  G.act(st2, 0, { type: 'build', what: 'settlement', id: v });
+  st2.board.vertices[v].edges.forEach(e => { st2.roads[e] = 1; });
+  assert.doesNotThrow(() => Bot.decide(st2, 0));
+});
+
+test('Server: übersteht kaputte Requests, Plätze nicht per Name kaperbar, Brett nur bei Änderung', async (t) => {
+  const { proc, port } = await startServer({});
+  t.after(() => proc.kill());
+  for (const bad of ['/%E0%A4%A', '/%', '/a%00b', '/..%2f..%2fetc%2fpasswd']) {
+    const r = await fetch(`http://127.0.0.1:${port}${bad}`);
+    assert.ok([400, 403, 404].includes(r.status), bad + ' -> ' + r.status);
+  }
+  assert.strictEqual((await fetch(`http://127.0.0.1:${port}/`)).status, 200, 'Server lebt noch');
+
+  // Zwei Spieler, Ben trennt die Verbindung, Mallory versucht seinen Platz per Name zu übernehmen
+  const conn = () => new Promise((resolve) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    const msgs = [];
+    ws.on('message', (raw) => msgs.push(JSON.parse(raw)));
+    ws.on('open', () => resolve({ ws, msgs }));
+  });
+  const until = async (c, pred) => { for (let i = 0; i < 100; i++) { const m = c.msgs.find(pred); if (m) return m; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timeout'); };
+  const host = await conn();
+  host.ws.send(JSON.stringify({ t: 'create', name: 'Anna' }));
+  const joined = await until(host, m => m.t === 'joined');
+  const ben = await conn();
+  ben.ws.send(JSON.stringify({ t: 'join', room: joined.room, name: 'Ben' }));
+  await until(ben, m => m.t === 'joined');
+  host.ws.send(JSON.stringify({ t: 'start', keepOrder: true }));
+  await until(host, m => m.t === 'room' && m.game);
+  ben.ws.close();
+  await new Promise(r => setTimeout(r, 100));
+  const mal = await conn();
+  mal.ws.send(JSON.stringify({ t: 'join', room: joined.room, name: 'ben' }));
+  const denied = await until(mal, m => m.t === 'error' || m.t === 'joined');
+  assert.strictEqual(denied.t, 'error', 'Platz durfte nicht per Name übernommen werden');
+  // Gastgeber gibt frei -> jetzt klappt es
+  host.ws.send(JSON.stringify({ t: 'release', seat: 1 }));
+  await new Promise(r => setTimeout(r, 100));
+  mal.msgs.length = 0;
+  mal.ws.send(JSON.stringify({ t: 'join', room: joined.room, name: 'Ben' }));
+  assert.strictEqual((await until(mal, m => m.t === 'error' || m.t === 'joined')).t, 'joined');
+
+  // Brett nur beim ersten Mal bzw. bei Änderung; Chat-Nachrichten kommen ohne Brett
+  host.msgs.length = 0;
+  host.ws.send(JSON.stringify({ t: 'chat', text: 'hallo' }));
+  const chatMsg = await until(host, m => m.t === 'room' && m.room.chat.some(c => c.text === 'hallo'));
+  assert.strictEqual(chatMsg.board, undefined, 'Brett wurde unnötig erneut gesendet');
+  const first = mal.msgs.find(m => m.t === 'room' && m.game);
+  assert.ok(first && first.board, 'Neue Verbindung bekommt das Brett');
+  [host, ben, mal].forEach(c => c.ws.close());
+});
