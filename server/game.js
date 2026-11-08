@@ -766,6 +766,20 @@ function editAction(st, a) {
       }
       break;
     }
+    case 'harbor': {
+      // Hafen an einer Küstenkante setzen, ändern oder entfernen (harborType: 'any' | Rohstoff | null)
+      const e = st.board.edges[Number(a.edge)];
+      if (!e) fail('Ungültige Kante.');
+      const sea = e.hexes.find(h => st.board.hexes[h].type === 'sea');
+      const land = e.hexes.find(h => st.board.hexes[h].type !== 'sea');
+      if (sea === undefined || land === undefined) fail('Häfen liegen an der Küste: zwischen einem Meer- und einem Landfeld.');
+      st.board.harbors = st.board.harbors.filter(hb => hb.edge !== e.id);
+      if (a.harborType !== null && a.harborType !== undefined) {
+        if (a.harborType !== 'any' && !RES.includes(a.harborType)) fail('Ungültiger Hafentyp.');
+        st.board.harbors.push({ hex: sea, edge: e.id, type: a.harborType });
+      }
+      break;
+    }
     case 'vpTarget': {
       const n = Math.trunc(Number(a.value));
       if (!(n >= 3 && n <= 30)) fail('Ungültiges Siegpunktziel.');
