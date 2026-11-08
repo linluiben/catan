@@ -35,12 +35,15 @@ test('Manipulierter Spielstand wird bereinigt', () => {
 function startServer(env) {
   return new Promise((resolve, reject) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inselreich-'));
-    const port = 3500 + Math.floor(Math.random() * 400);
+    // PORT=0: das Betriebssystem vergibt einen freien Port, der Server meldet ihn in der Startzeile
     const proc = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: dir, ...env },
+      env: { ...process.env, PORT: '0', HOST: '127.0.0.1', DATA_DIR: dir, ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    proc.stdout.on('data', (d) => { if (String(d).includes('läuft')) resolve({ proc, port, dir }); });
+    proc.stdout.on('data', (d) => {
+      const m = String(d).match(/läuft auf http:\/\/[^:]+:(\d+)/);
+      if (m) resolve({ proc, port: Number(m[1]), dir });
+    });
     proc.on('exit', (c) => reject(new Error('Server beendet: ' + c)));
   });
 }
