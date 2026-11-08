@@ -14,6 +14,10 @@
       <h1>⬡ Inselreich</h1>
       <p>Siedeln, handeln, segeln – im Browser mit Freunden, auf deinem eigenen Server.</p>
     </header>
+    <div class="card local-only offline-banner" hidden>
+      <strong>🧪 Offline-Version:</strong> Läuft komplett in deinem Browser – spiele gegen Bots oder mit mehreren Leuten abwechselnd an diesem Gerät.
+      Für echtes Online-Spielen mit Freunden den Server selbst hosten (siehe <a href="https://github.com/linluiben/inselreich">GitHub</a>).
+    </div>
     <div class="lobby-grid">
       <div class="card">
         <h2>Dein Name</h2>
@@ -22,12 +26,12 @@
           <h3>Server-Passwort</h3>
           <input id="pwInput" type="password" placeholder="Passwort">
         </div>
-        <h2>Raum beitreten</h2>
-        <div class="row">
+        <h2 class="online-only">Raum beitreten</h2>
+        <div class="row online-only">
           <input id="codeInput" maxlength="5" placeholder="Raum-Code" style="text-transform:uppercase">
           <button id="joinBtn">Beitreten</button>
         </div>
-        <h3>Offene Räume <button id="refreshBtn" class="small ghost" title="Aktualisieren">⟳</button></h3>
+        <h3><span class="online-only">Offene Räume</span><span class="local-only" hidden>Gespeichertes Spiel</span> <button id="refreshBtn" class="small ghost" title="Aktualisieren">⟳</button></h3>
         <ul id="roomList" class="room-list"></ul>
       </div>
       <div class="card">

@@ -46,7 +46,9 @@ const getPw = () => $('pwInput').value;
 // ------------------------------------------------------------------ Verbindung
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(`${proto}://${location.host}${location.pathname.replace(/[^/]*$/, '')}ws`);
+  // Offline-Version (GitHub Pages): "Server" läuft im Browser
+  const ws = window.LocalServer ? window.LocalServer.socket()
+    : new WebSocket(`${proto}://${location.host}${location.pathname.replace(/[^/]*$/, '')}ws`);
   S.ws = ws;
   ws.onopen = () => {
     if (S.roomId && tokens[S.roomId]) ws.send(JSON.stringify({ t: 'join', room: S.roomId, token: tokens[S.roomId], password: getPw() }));
@@ -72,7 +74,7 @@ function onMsg(m) {
     case 'room':
       // Das Brett schickt der Server nur, wenn es sich geändert hat
       if (m.board) S.board = m.board;
-      if (m.game) m.game.board = S.board;
+      if (m.game) { if (m.game.board) S.board = m.game.board; else m.game.board = S.board; }
       S.room = m.room;
       S.game = m.game;
       renderAll();
@@ -136,7 +138,11 @@ function readJsonFile(input, cb) {
 // ------------------------------------------------------------------ Lobby
 async function loadInfo() {
   try {
-    S.info = await (await fetch('api/info')).json();
+    S.info = window.LocalServer ? window.LocalServer.info() : await (await fetch('api/info')).json();
+    if (S.info.local) {
+      document.querySelectorAll('.online-only').forEach(el => { el.hidden = true; });
+      document.querySelectorAll('.local-only').forEach(el => { el.hidden = false; });
+    }
     $('scenarioSelect').innerHTML = S.info.scenarios.map(s => `<option value="${s.key}">${esc(s.name)} – ${s.vp} SP</option>`).join('');
     $('pwRow').hidden = !S.info.passwordRequired;
   } catch { /* offline */ }
@@ -147,12 +153,13 @@ async function loadRooms() {
       $('roomList').innerHTML = '<li class="hint">Die Raumliste ist auf diesem Server ausgeblendet. Lass dir den Raum-Code oder Einladungslink geben.</li>';
       return;
     }
-    const list = await (await fetch('api/rooms', { headers: { 'X-Server-Password': getPw() } })).json();
+    const list = window.LocalServer ? window.LocalServer.rooms()
+      : await (await fetch('api/rooms', { headers: { 'X-Server-Password': getPw() } })).json();
     $('roomList').innerHTML = list.length ? list.map(r => `
       <li><div><strong>${esc(r.name)}</strong> <span class="code">${r.id}</span>
       <small>${esc(r.scenario)} · ${r.players.map(esc).join(', ') || '–'} · ${r.ended ? 'beendet' : r.started ? 'läuft' : 'wartet'}</small></div>
       <button data-join="${r.id}" class="small">${r.started ? 'Öffnen' : 'Beitreten'}</button></li>`).join('')
-      : '<li class="hint">Noch keine Räume – erstelle einen!</li>';
+      : `<li class="hint">${window.LocalServer ? 'Noch kein lokales Spiel gespeichert – starte rechts ein neues!' : 'Noch keine Räume – erstelle einen!'}</li>`;
   } catch { $('roomList').innerHTML = '<li class="hint">Raumliste nicht verfügbar.</li>'; }
 }
 function requireName() {
@@ -198,7 +205,10 @@ $('roomCode').onclick = () => {
 $('exportBtn').onclick = () => send({ t: 'export' });
 $('editorBtn').onclick = () => act({ type: 'edit', op: 'toggle' });
 $('helpBtn').onclick = showHelp;
-$('overlay').onclick = (e) => { if (e.target.id === 'overlay' || e.target.dataset.close !== undefined) $('overlay').hidden = true; };
+$('overlay').onclick = (e) => {
+  const opaque = $('overlay').classList.contains('opaque');
+  if ((e.target.id === 'overlay' && !opaque) || e.target.dataset.close !== undefined) { $('overlay').hidden = true; $('overlay').classList.remove('opaque'); }
+};
 document.querySelectorAll('.tabs button').forEach(b => {
   b.onclick = () => {
     S.tab = b.dataset.tab;
@@ -226,8 +236,18 @@ const pname = (seat) => {
 function renderAll() {
   const r = S.room, g = S.game;
   if (!r) return;
+  if (r.local && g && g.phase !== 'ended' && r.seats.filter(s => !s.bot).length > 1 && S.lastYou !== undefined && r.you !== S.lastYou && r.you !== null) {
+    // Pass-and-Play: Gerät weitergeben, bevor die Karten des nächsten Spielers sichtbar werden
+    $('overlayBox').innerHTML = `<h2>👉 Weitergeben an ${esc(r.seats[r.you].name)}</h2>
+      <p>${esc(r.seats[r.you].name)} ist jetzt dran. Erst aufdecken, wenn nur diese Person auf den Bildschirm schaut.</p>
+      <button data-close class="primary">Ich bin ${esc(r.seats[r.you].name)} – aufdecken</button>`;
+    $('overlay').hidden = false;
+    $('overlay').classList.add('opaque');
+  }
+  S.lastYou = r.you;
   $('roomTitle').textContent = r.name;
   $('roomCode').textContent = r.id;
+  $('roomCode').hidden = !!r.local;
   $('editorBtn').hidden = !(isHost() && g);
   $('editorBtn').classList.toggle('active', !!(g && g.editor));
   $('exportBtn').hidden = !(g && (isHost() || g.phase === 'ended'));
@@ -277,7 +297,8 @@ function renderWaiting() {
   const cur = sc.find(s => s.key === r.options.scenario);
   const url = location.origin + location.pathname + '?room=' + r.id;
   let h = `<div class="wait-box"><h2>Warteraum „${esc(r.name)}“</h2>
-    <p class="hint">Lade Mitspieler ein: Raum-Code <span class="code">${r.id}</span> oder Link<br><code>${esc(url)}</code></p>
+    ${r.local ? '<p class="hint">Offline-Modus: Alle spielen an diesem Gerät (abwechselnd) oder gegen Bots. Der Spielstand bleibt in diesem Browser gespeichert.</p>'
+    : `<p class="hint">Lade Mitspieler ein: Raum-Code <span class="code">${r.id}</span> oder Link<br><code>${esc(url)}</code></p>`}
     <div class="section-title">Spieler (${r.seats.length}/6)</div>`;
   r.seats.forEach((s, i) => {
     h += `<div class="seat-row"><span class="swatch" style="background:${s.color}"></span>
@@ -289,7 +310,8 @@ function renderWaiting() {
     h += '</div>';
   });
   if (host) {
-    h += `<div class="btns row" style="margin-top:8px"><button data-a="addBot" ${r.seats.length >= 6 ? 'disabled' : ''}>🤖 Bot hinzufügen</button></div>
+    h += `<div class="btns row" style="margin-top:8px"><button data-a="addBot" ${r.seats.length >= 6 ? 'disabled' : ''}>🤖 Bot hinzufügen</button>
+      ${r.local ? `<button data-a="addHuman" ${r.seats.length >= 6 ? 'disabled' : ''}>👤 Mitspieler an diesem Gerät</button>` : ''}</div>
       <label>Spielfeld <select id="optScenario">${sc.map(s => `<option value="${s.key}" ${s.key === r.options.scenario ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>
       <label>Siegpunkte <input id="optVp" type="number" min="3" max="30" value="${r.options.vpTarget}"></label>
       <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="optKeepOrder" style="width:auto;display:inline"> Sitzreihenfolge beibehalten (sonst zufällig)</label>
@@ -315,6 +337,7 @@ $('waiting').onclick = (e) => {
   if (!b) return;
   const a = b.dataset.a;
   if (a === 'addBot') send({ t: 'addBot' });
+  if (a === 'addHuman') { const n = prompt('Name des Mitspielers:'); if (n !== null) send({ t: 'addHuman', name: n }); }
   if (a === 'kick') send({ t: 'kick', seat: Number(b.dataset.seat) });
   if (a === 'color') {
     if (isHost()) send({ t: 'color', seat: Number(b.dataset.seat), color: b.dataset.color });
@@ -537,7 +560,7 @@ function renderPlayers() {
         ${g.longestRoad === p.seat ? '<span class="badge" title="Längste Handelsstraße (+2)">Straße +2</span>' : ''}
         ${g.largestArmy === p.seat ? '<span class="badge" title="Größte Rittermacht (+2)">Ritter +2</span>' : ''}
         ${p.bonusVP ? `<span class="badge" title="Inselbonus">🏝️ +${p.bonusVP}</span>` : ''}
-        ${isHost() && p.seat !== g.you && !p.bot ? `<button class="small ghost" data-a="release" data-seat="${p.seat}" title="Platz freigeben (z. B. für ein anderes Gerät): danach kann man ihn mit genau diesem Namen übernehmen">🔓</button>` : ''}
+        ${isHost() && !S.room.local && p.seat !== g.you && !p.bot ? `<button class="small ghost" data-a="release" data-seat="${p.seat}" title="Platz freigeben (z. B. für ein anderes Gerät): danach kann man ihn mit genau diesem Namen übernehmen">🔓</button>` : ''}
         ${isHost() && p.seat !== g.you ? `<button class="small ghost" data-a="toggleBot" data-seat="${p.seat}" title="${p.bot ? 'Bot entfernen (Mensch übernimmt)' : 'Bot übernimmt diesen Platz'}">${p.bot ? '👤' : '🤖'}</button>` : ''}
       </span></div>`;
   }).join('') + `<div class="hint" style="font-size:.8em">Ziel: ${g.scenario.vpTarget} SP · ${esc(g.scenario.name)} · Bank: ${RES.map(k => EMOJI[k] + g.bank[k]).join(' ')} · 📜${g.devDeckCount}</div>`;

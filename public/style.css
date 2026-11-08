@@ -171,3 +171,7 @@ label.file input { display: none; }
 .editor-table { width: 100%; border-collapse: collapse; font-size: .85em; }
 .editor-table td { padding: 2px; text-align: center; }
 .editor-table button { padding: 0 5px; }
+
+.offline-banner { margin-bottom: 16px; border-left: 4px solid var(--accent); }
+.offline-banner a { color: var(--accent2); }
+#overlay.opaque { background: var(--bg); }
