@@ -1,0 +1,17 @@
+services:
+  inselreich:
+    build: .
+    container_name: inselreich
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Optional: Passwort, damit nur deine Freunde Räume sehen/erstellen können
+      SERVER_PASSWORD: ""
+      # Wartezeit der Bots zwischen Aktionen in ms
+      BOT_DELAY_MS: "700"
+    volumes:
+      - inselreich-data:/data
+
+volumes:
+  inselreich-data:
