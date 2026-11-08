@@ -15,11 +15,11 @@ for (const f of ['app.js', 'style.css', 'local.js']) {
   fs.copyFileSync(path.join(root, 'public', f), path.join(out, f));
 }
 
-const modules = ['maps', 'game', 'bot'];
+const modules = ['maps', 'game', 'bot', 'position'];
 let bundle = '/* Inselreich-Engine – automatisch gebündelt aus server/*.js */\n(function () {\n  const defs = {};\n';
 for (const m of modules) {
   const src = fs.readFileSync(path.join(root, 'server', m + '.js'), 'utf8');
-  if (/require\((?!'\.\/(maps|game|bot)')/.test(src)) throw new Error(`${m}.js benutzt ein Node-Modul und kann nicht in den Browser`);
+  if (/require\((?!'\.\/(maps|game|bot|position)')/.test(src)) throw new Error(`${m}.js benutzt ein Node-Modul und kann nicht in den Browser`);
   bundle += `  defs['./${m}'] = function (module, exports, require) {\n${src}\n  };\n`;
 }
 bundle += `  const cache = {};
@@ -31,7 +31,7 @@ bundle += `  const cache = {};
     defs[name](module, module.exports, req);
     return module.exports;
   }
-  window.InselreichEngine = { maps: req('./maps'), G: req('./game'), Bot: req('./bot') };
+  window.InselreichEngine = { maps: req('./maps'), G: req('./game'), Bot: req('./bot'), Position: req('./position') };
 })();
 `;
 fs.writeFileSync(path.join(out, 'engine.js'), bundle);

@@ -9,6 +9,7 @@ const G = require('./game');
 const Bot = require('./bot');
 const { listScenarios, SCENARIOS, shuffle } = require('./maps');
 const Sec = require('./security');
+const Position = require('./position');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -252,6 +253,20 @@ function attach(ws, room, seat) {
 }
 
 function handle(ws, m) {
+  // Stellungscode: erst (asynchron) entpacken, dann wie ein geladener Spielstand behandeln
+  if ((m.t === 'create' || m.t === 'load') && typeof m.code === 'string') {
+    const errSend = (msg) => send(ws, { t: 'error', msg });
+    if (m.t === 'create') {
+      const pw = Sec.checkPassword(ws.ip, m.password);
+      if (!pw.ok) return errSend(pw.msg);
+    } else if (!ws.room || ws.seat === null || ws.room.seats[ws.seat].token !== ws.room.hostToken) {
+      return errSend('Nur der Gastgeber darf eine Stellung laden.');
+    }
+    Position.decode(m.code)
+      .then((state) => { try { handle(ws, { ...m, code: undefined, state }); } catch (e) { console.error(e); errSend('Interner Serverfehler.'); } })
+      .catch((e) => errSend(e instanceof Position.CodeError ? e.message : (e && e.message) || 'Ungültiger Stellungscode.'));
+    return;
+  }
   const err = (msg) => send(ws, { t: 'error', msg });
   if (m.t === 'create' || m.t === 'join') {
     // Wer ein gültiges Platz-Token hat, war schon berechtigt (Wiederverbinden ohne Passwort)
@@ -354,6 +369,14 @@ function handle(ws, m) {
       if (!room.game) return err('Noch kein Spiel gestartet.');
       if (!isHost && room.game.phase !== 'ended') return err('Nur der Gastgeber kann den vollständigen Spielstand exportieren.');
       return send(ws, { t: 'export', state: room.game, name: room.name });
+    }
+    case 'positionCode': {
+      // Enthält alle Handkarten – daher wie der Export nur für den Gastgeber (oder nach Spielende)
+      if (!room.game) return err('Noch kein Spiel gestartet.');
+      if (!isHost && room.game.phase !== 'ended') return err('Nur der Gastgeber kann den Stellungscode erzeugen (er enthält alle Handkarten).');
+      Position.encode(room.game).then((code) => send(ws, { t: 'positionCode', code }))
+        .catch((e) => { console.error(e); err('Code konnte nicht erzeugt werden.'); });
+      return;
     }
   }
   // Ab hier: nur Gastgeber

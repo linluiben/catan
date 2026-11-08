@@ -361,4 +361,4 @@ function listScenarios() {
   }));
 }
 
-module.exports = { SCENARIOS, buildScenario, listScenarios, computeIslands, shuffle, RES };
+module.exports = { SCENARIOS, buildScenario, listScenarios, computeIslands, buildGeometry, shuffle, RES };

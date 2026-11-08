@@ -175,3 +175,7 @@ label.file input { display: none; }
 .offline-banner { margin-bottom: 16px; border-left: 4px solid var(--accent); }
 .offline-banner a { color: var(--accent2); }
 #overlay.opaque { background: var(--bg); }
+
+textarea { font: 12px/1.35 ui-monospace, monospace; color: var(--text); background: var(--panel2); border: 1px solid #ffffff22; border-radius: 8px; padding: 7px 10px; width: 100%; resize: vertical; word-break: break-all; }
+label textarea { display: block; margin-top: 3px; }
+.code-box { min-height: 110px; }

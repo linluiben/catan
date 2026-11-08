@@ -4,7 +4,7 @@
  * wie server/index.js, kennt aber nur einen Raum: Bots und/oder mehrere Menschen an einem Gerät
  * (Pass-and-Play). Der Spielstand wird im localStorage des Browsers gespeichert. */
 (function () {
-  const { G, Bot, maps } = window.InselreichEngine;
+  const { G, Bot, maps, Position } = window.InselreichEngine;
   const KEY = 'inselreich_local_room';
   const ROOM_ID = 'LOKAL';
   const COLORS = G.COLORS;
@@ -107,6 +107,17 @@
 
   function handle(m) {
     if (!m || typeof m !== 'object') return;
+    if ((m.t === 'create' || m.t === 'load') && typeof m.code === 'string') {
+      Position.decode(m.code)
+        .then((state) => handle({ ...m, code: undefined, state }))
+        .catch((e) => err((e && e.message) || 'Ungültiger Stellungscode.'));
+      return;
+    }
+    if (m.t === 'positionCode') {
+      if (!room || !room.game) return err('Noch kein Spiel gestartet.');
+      Position.encode(room.game).then((code) => emit({ t: 'positionCode', code })).catch(() => err('Code konnte nicht erzeugt werden.'));
+      return;
+    }
     switch (m.t) {
       case 'create': {
         const name = cleanName(m.name) || 'Spieler 1';
