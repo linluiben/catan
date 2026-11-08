@@ -80,6 +80,8 @@ Für den Dauerbetrieb kannst du z. B. `pm2 start server/index.js --name inselrei
 
 Die Spiel-Engine läuft auch komplett im Browser. Das ist ideal zum Ausprobieren gegen Bots oder für eine Runde mit mehreren Leuten **an einem Gerät** (Pass-and-Play mit Übergabe-Bildschirm, damit niemand fremde Karten sieht). Der Spielstand bleibt im Browser gespeichert. Editor, Speichern und Laden funktionieren genauso.
 
+**Handeln am selben Gerät:** Wer am Zug ist, macht wie gewohnt ein Angebot (🤝 Handel mit Mitspielern). Das Gerät wird dann nacheinander an jeden anderen Menschen weitergereicht. Ein Übergabe-Bildschirm zeigt jeweils das Angebot, und die Person nimmt an oder lehnt ab. Bots antworten automatisch. Danach geht es zurück zum Anbietenden, der mit einem Klick auf „Handeln“ den Partner wählt.
+
 - **Online:** Der Workflow `.github/workflows/pages.yml` veröffentlicht die Version bei jedem Push auf `main` unter **https://linluiben.github.io/inselreich/**. Voraussetzung ist einmalig Settings → Pages → Source: „GitHub Actions“.
 - **Lokal:** `npm run build:static` erzeugt `dist/`. Den Ordner kann jeder statische Webserver ausliefern, z. B. `npx serve dist`.
 

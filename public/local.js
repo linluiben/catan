@@ -45,6 +45,13 @@
       if (Object.keys(L).length) return true;
       return g.phase === 'play' && g.trade && g.trade.from !== i && g.trade.responses[i] === undefined;
     };
+    // Offenes Handelsangebot: zuerst alle Menschen fragen, die noch nicht geantwortet haben
+    // (sonst bliebe die Ansicht beim Anbietenden, der ja immer etwas tun kann)
+    if (g.phase === 'play' && g.trade && !g.pending.length) {
+      const ask = humans.find(i => i !== g.trade.from && g.trade.responses[i] === undefined);
+      if (ask !== undefined) { room.viewReason = 'trade'; return ask; }
+    }
+    room.viewReason = null;
     const order = [];
     if (g.phase === 'play') order.push(g.turn);
     if (g.phase === 'setup' && g.setup) order.push(g.setup.order[g.setup.idx]);
@@ -65,7 +72,7 @@
       room: {
         id: ROOM_ID, name: room.name, options: room.options, started: !!room.game, local: true,
         seats: room.seats.map((s, i) => ({ seat: i, name: s.name, bot: s.bot, color: s.color, online: true })),
-        chat: room.chat.slice(-60), spectators: 0, you, host: true,
+        chat: room.chat.slice(-60), spectators: 0, you, host: true, viewReason: room.viewReason || null,
       },
       game: room.game ? G.viewFor(room.game, you) : null,
     });
