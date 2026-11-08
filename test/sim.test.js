@@ -106,3 +106,32 @@ test('Spielstand kann gespeichert und geladen werden', () => {
   assert.deepStrictEqual(copy.buildings, st.buildings);
   assert.strictEqual(copy.players.length, 3);
 });
+
+test('Editor: Häfen setzen, ändern, entfernen – Handelsverhältnis greift', () => {
+  const st = G.newGame({ scenario: 'classic', players: [{ name: 'A' }, { name: 'B' }] });
+  const isSea = (h) => st.board.hexes[h].type === 'sea';
+  // Küstenkante ohne bestehenden Hafen suchen
+  const coast = st.board.edges.find(e => e.hexes.some(isSea) && e.hexes.some(h => !isSea(h))
+    && !st.board.harbors.some(hb => hb.edge === e.id));
+  const inland = st.board.edges.find(e => e.hexes.length === 2 && e.hexes.every(h => !isSea(h)));
+  assert.strictEqual(G.act(st, 0, { type: 'edit', op: 'harbor', edge: coast.id, harborType: 'ore' }).ok, false, 'nur im Editor');
+  G.act(st, 0, { type: 'edit', op: 'toggle' });
+  const n = st.board.harbors.length;
+  assert.ok(G.act(st, 0, { type: 'edit', op: 'harbor', edge: coast.id, harborType: 'ore' }).ok);
+  assert.strictEqual(st.board.harbors.length, n + 1);
+  // Siedlung an den Hafen -> 2:1 für Erz
+  G.act(st, 0, { type: 'edit', op: 'place', what: 'settlement', id: coast.v[0], owner: 0 });
+  assert.strictEqual(G.tradeRatios(st, 0).ore, 2);
+  assert.strictEqual(G.tradeRatios(st, 0).wood, 4);
+  // Typ ändern ersetzt statt zu verdoppeln
+  assert.ok(G.act(st, 0, { type: 'edit', op: 'harbor', edge: coast.id, harborType: 'any' }).ok);
+  assert.strictEqual(st.board.harbors.length, n + 1);
+  assert.strictEqual(G.tradeRatios(st, 0).wood, 3);
+  // Entfernen
+  assert.ok(G.act(st, 0, { type: 'edit', op: 'harbor', edge: coast.id, harborType: null }).ok);
+  assert.strictEqual(st.board.harbors.length, n);
+  assert.strictEqual(G.tradeRatios(st, 0).wood, 4);
+  // Ungültig: Binnenkante, falscher Typ
+  assert.strictEqual(G.act(st, 0, { type: 'edit', op: 'harbor', edge: inland.id, harborType: 'any' }).ok, false);
+  assert.strictEqual(G.act(st, 0, { type: 'edit', op: 'harbor', edge: coast.id, harborType: '__proto__' }).ok, false);
+});

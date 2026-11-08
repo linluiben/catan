@@ -30,7 +30,7 @@ Ein selbst gehostetes **Mehrspieler-Siedlungs- und Handelsspiel auf Hexfeldern**
   | Zufallsinseln (wird jedes Mal neu erzeugt) | 2–6 | ✔ |
 
 - **Von einer bestimmten Stellung starten**:
-  - **✏️ Editor** für den Gastgeber: Gebäude, Straßen und Schiffe für jeden Spieler setzen oder entfernen, Räuber und Pirat versetzen, Feldtypen und Zahlen ändern, Rohstoff- und Entwicklungskarten verteilen, Ritter, Bonuspunkte und Siegpunktziel einstellen. Danach legst du mit **„Hier starten“** fest, wer am Zug ist
+  - **✏️ Editor** für den Gastgeber: Gebäude, Straßen und Schiffe für jeden Spieler setzen oder entfernen, Räuber und Pirat versetzen, Feldtypen, Zahlen und Häfen ändern, Rohstoff- und Entwicklungskarten verteilen, Ritter, Bonuspunkte und Siegpunktziel einstellen. Danach legst du mit **„Hier starten“** fest, wer am Zug ist
   - **📋 Stellungscode**: Die aktuelle Stellung wird zu einem kurzen Text (ca. 1 000 Zeichen) oder Link. Man kopiert ihn in den Chat und erstellt daraus mit einem Klick ein neues Spiel, auf dem Server oder in der Offline-Version
   - **💾 Speichern / 📂 Laden**: Der komplette Spielstand ist eine JSON-Datei. Du kannst ihn in einen neuen Raum laden (Startseite) oder in einen laufenden Raum
 - **Automatische Speicherung**: Räume und Spiele überstehen einen Server-Neustart. Spieler verbinden sich automatisch neu
@@ -181,6 +181,7 @@ Details und eine Checkliste stehen in [docs/ZUGANG-UND-DATENSCHUTZ.md](docs/ZUGA
    - 🗑️ Figuren entfernen
    - Räuber/Pirat versetzen
    - 🗺️ Feldtyp und 🔢 Zahl eines Feldes ändern
+   - ⚓ Häfen setzen, ändern oder entfernen: Typ wählen (3:1 oder 2:1 für einen Rohstoff), dann auf eine Küstenkante klicken
    - Karten mit **+ / −** verteilen
 4. Spieler auswählen, der am Zug ist (optional „hat schon gewürfelt“), und **▶️ Hier starten** klicken.
 5. Mit **💾 Speichern** sicherst du die Stellung, um sie später erneut zu laden.

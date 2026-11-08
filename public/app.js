@@ -33,7 +33,7 @@ const S = {
   ws: null, queue: [], info: null, room: null, game: null, roomId: null,
   mode: null, moveFrom: null, edgeKind: 'road', picker: {}, tradeOpen: false, devChoice: null,
   bankGive: null, bankGet: null,
-  editor: { tool: 'settlement', owner: 0, hexType: 'wood', number: 6, dev: 'knight', startSeat: 0, rolled: false },
+  editor: { tool: 'settlement', owner: 0, hexType: 'wood', number: 6, harbor: 'any', dev: 'knight', startSeat: 0, rolled: false },
   chatSeen: 0, tab: 'log', lastLogN: 0,
 };
 
@@ -465,6 +465,10 @@ function editorInteractions(g, r) {
     case 'number':
       r.hexes = g.board.hexes.filter(h => h.type !== 'sea' && h.type !== 'desert').map(h => h.id);
       r.onH = (hex) => act({ type: 'edit', op: 'hex', hex, number: E.number }); break;
+    case 'harbor':
+      // Küstenkanten: genau ein Meer- und ein Landfeld
+      r.edges = g.board.edges.filter(e => e.hexes.some(h => isLand(g, h)) && e.hexes.some(h => !isLand(g, h))).map(e => e.id);
+      r.onE = (edge) => act({ type: 'edit', op: 'harbor', edge, harborType: E.harbor === 'none' ? null : E.harbor }); break;
   }
 }
 
@@ -760,7 +764,7 @@ function tradeBox(g, me) {
 function editorPanel(g) {
   const E = S.editor;
   if (!g.players[E.owner]) E.owner = 0;
-  const tools = [['settlement', '🏠 Siedlung'], ['city', '🏰 Stadt'], ['road', '🛤️ Straße'], ['ship', '⛵ Schiff'], ['remove', '🗑️ Entfernen'], ['robber', '🥷 Räuber/Pirat'], ['hexType', '🗺️ Feldtyp'], ['number', '🔢 Zahl']]
+  const tools = [['settlement', '🏠 Siedlung'], ['city', '🏰 Stadt'], ['road', '🛤️ Straße'], ['ship', '⛵ Schiff'], ['remove', '🗑️ Entfernen'], ['robber', '🥷 Räuber/Pirat'], ['hexType', '🗺️ Feldtyp'], ['number', '🔢 Zahl'], ['harbor', '⚓ Hafen']]
     .filter(([k]) => k !== 'ship' || g.scenario.seafarers);
   let h = `<div class="section-title">✏️ Editor – Werkzeug</div><div class="editor-grid">${tools.map(([k, l]) => `<button class="small ${E.tool === k ? 'active' : ''}" data-a="etool" data-k="${k}">${l}</button>`).join('')}</div>`;
   if (['settlement', 'city', 'road', 'ship'].includes(E.tool)) {
@@ -768,6 +772,11 @@ function editorPanel(g) {
   }
   if (E.tool === 'hexType') {
     h += `<div class="btns">${['wood', 'brick', 'wool', 'grain', 'ore', 'gold', 'desert', 'sea'].map(t => `<button class="small ${E.hexType === t ? 'active' : ''}" data-a="ehex" data-k="${t}">${EMOJI[t] || '🌊'} ${HEX_DE[t]}</button>`).join('')}</div>`;
+  }
+  if (E.tool === 'harbor') {
+    const types = [['any', '3:1 beliebig'], ...RES.map(k => [k, `2:1 ${EMOJI[k]} ${RES_DE[k]}`]), ['none', '🗑️ Hafen entfernen']];
+    h += `<div class="btns">${types.map(([k, l]) => `<button class="small ${E.harbor === k ? 'active' : ''}" data-a="eharbor" data-k="${k}">${l}</button>`).join('')}</div>
+      <p class="hint">Klicke auf eine Küstenkante (zwischen Meer und Land). Ein vorhandener Hafen an dieser Kante wird ersetzt.</p>`;
   }
   if (E.tool === 'number') {
     h += `<div class="btns">${[2, 3, 4, 5, 6, 8, 9, 10, 11, 12].map(n => `<button class="small ${E.number === n ? 'active' : ''}" data-a="enum" data-k="${n}">${n}</button>`).join('')}</div>`;
@@ -842,6 +851,7 @@ $('panel').addEventListener('click', (e) => {
     case 'eowner': S.editor.owner = Number(d.seat); return renderAll();
     case 'ehex': S.editor.hexType = d.k; return renderAll();
     case 'enum': S.editor.number = Number(d.k); return renderAll();
+    case 'eharbor': S.editor.harbor = d.k; return renderAll();
     case 'eres': {
       const op = d.op;
       if (op === 'res') return act({ type: 'edit', op: 'res', seat: Number(d.seat), res: d.r, delta: Number(d.d) });
