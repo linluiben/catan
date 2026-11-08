@@ -116,7 +116,13 @@ test('Editor: Häfen setzen, ändern, entfernen – Handelsverhältnis greift', 
   const inland = st.board.edges.find(e => e.hexes.length === 2 && e.hexes.every(h => !isSea(h)));
   assert.strictEqual(G.act(st, 0, { type: 'edit', op: 'harbor', edge: coast.id, harborType: 'ore' }).ok, false, 'nur im Editor');
   G.act(st, 0, { type: 'edit', op: 'toggle' });
-  const n = st.board.harbors.length;
+  // Zufällig erzeugte Häfen entfernen: sonst kann die Testsiedlung zusätzlich an einem
+  // vorhandenen Hafen liegen und das erwartete Handelsverhältnis verfälschen.
+  for (const hb of st.board.harbors.slice()) {
+    assert.ok(G.act(st, 0, { type: 'edit', op: 'harbor', edge: hb.edge, harborType: null }).ok);
+  }
+  assert.strictEqual(st.board.harbors.length, 0);
+  const n = 0;
   assert.ok(G.act(st, 0, { type: 'edit', op: 'harbor', edge: coast.id, harborType: 'ore' }).ok);
   assert.strictEqual(st.board.harbors.length, n + 1);
   // Siedlung an den Hafen -> 2:1 für Erz

@@ -11,7 +11,8 @@ const { listScenarios, SCENARIOS, shuffle } = require('./maps');
 const Sec = require('./security');
 const Position = require('./position');
 
-const PORT = Number(process.env.PORT) || 3000;
+// PORT=0 lässt das Betriebssystem einen freien Port wählen (praktisch für Tests)
+const PORT = process.env.PORT !== undefined && process.env.PORT !== '' && Number.isInteger(Number(process.env.PORT)) ? Number(process.env.PORT) : 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const PASSWORD = Sec.CONFIG.password;
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
@@ -512,6 +513,6 @@ setInterval(() => {
 loadRooms();
 for (const r of rooms.values()) scheduleBots(r);
 server.listen(PORT, HOST, () => {
-  console.log(`Inselreich läuft auf http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  console.log(`Inselreich läuft auf http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${server.address().port}`);
   console.log(`Server-Passwort: ${PASSWORD ? 'aktiv' : 'AUS'} · Raumliste: ${Sec.CONFIG.roomList ? 'sichtbar' : 'versteckt'} · Räume werden nach ${Sec.CONFIG.roomTtlDays} Tagen Inaktivität gelöscht`);
 });
