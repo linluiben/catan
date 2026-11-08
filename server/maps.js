@@ -96,7 +96,7 @@ const SCENARIOS = {
   },
   zufall: {
     name: 'Seefahrt: Zufallsinseln (2–6 Spieler)',
-    minPlayers: 2, maxPlayers: 6, vp: 13, seafarers: true, islandBonus: 2, desert: 1,
+    minPlayers: 2, maxPlayers: 6, vp: 13, seafarers: true, islandBonus: 2, desert: 0, // Wüste setzt der Generator selbst
     generator: 'islands',
   },
 };

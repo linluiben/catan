@@ -1,0 +1,121 @@
+name: "🎲 Feedback nach einer Spielrunde"
+description: Wie lief die Runde? Was hat Spaß gemacht, was hat genervt, was fehlt?
+title: "[Feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke fürs Mitspielen! Alles ist optional – fülle aus, was dir einfällt. Dauert ca. 5 Minuten.
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Wo habt ihr gespielt?
+      options:
+        - Eigener Server (Homeserver / Tailscale)
+        - Eigener Server (lokal im WLAN)
+        - Offline-Version (GitHub Pages)
+        - Sonstiges
+    validations:
+      required: true
+
+  - type: input
+    id: setup
+    attributes:
+      label: Runde
+      description: Spielfeld, Anzahl Menschen/Bots, ungefähre Dauer
+      placeholder: "z. B. Archipel, 3 Menschen + 1 Bot, 75 Minuten"
+
+  - type: dropdown
+    id: devices
+    attributes:
+      label: Geräte
+      multiple: true
+      options:
+        - PC/Laptop
+        - Tablet
+        - Smartphone
+
+  - type: dropdown
+    id: fun
+    attributes:
+      label: Wie viel Spaß hat die Runde gemacht?
+      options: ["5 – sehr viel", "4", "3", "2", "1 – gar nicht"]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: again
+    attributes:
+      label: Würdest du wieder mitspielen?
+      options: ["Ja, gerne bald", "Ja, aber erst wenn ein paar Dinge besser sind", "Eher nicht"]
+
+  - type: checkboxes
+    id: ratings_good
+    attributes:
+      label: Was hat gut funktioniert?
+      options:
+        - label: Beitreten / Einladungslink
+        - label: Gründungsphase (Siedlungen setzen)
+        - label: Würfeln & Rohstoffverteilung
+        - label: Bauen (Straße, Siedlung, Stadt)
+        - label: Handel mit der Bank / Häfen
+        - label: Handel zwischen Spielern
+        - label: Räuber / Abwerfen / Karten ziehen
+        - label: Entwicklungskarten
+        - label: Schiffe / Pirat / Gold (Seefahrt)
+        - label: Bots
+        - label: Editor / Stellung laden
+        - label: Bedienung auf dem Handy
+
+  - type: textarea
+    id: bugs
+    attributes:
+      label: Fehler oder falsche Regeln
+      description: Was ist passiert, was hättest du erwartet? Gerne mit Screenshot. Ein Spielstand (💾) hilft enorm beim Nachstellen.
+      placeholder: "z. B. Längste Straße wurde nicht erkannt, obwohl …"
+
+  - type: textarea
+    id: confusing
+    attributes:
+      label: Was war unklar oder umständlich?
+      placeholder: "z. B. Ich habe nicht gefunden, wie man …"
+
+  - type: dropdown
+    id: speed
+    attributes:
+      label: Tempo & Verbindung
+      options:
+        - Flüssig, keine Probleme
+        - Gelegentlich Verzögerungen
+        - Verbindungsabbrüche / musste neu laden
+        - Sehr langsam
+
+  - type: dropdown
+    id: bots
+    attributes:
+      label: Wie stark waren die Bots?
+      options: ["Zu leicht", "Passend", "Zu stark", "Nicht mitgespielt"]
+
+  - type: checkboxes
+    id: wishes
+    attributes:
+      label: Was wünschst du dir am meisten? (max. 3)
+      options:
+        - label: Benachrichtigung/Ton, wenn ich dran bin
+        - label: Gegenangebote beim Handeln / schnellerer Handel
+        - label: Bestätigung oder Rückgängig beim Bauen
+        - label: Zoom & Verschieben des Spielbretts (Handy)
+        - label: Stärkere / handelnde Bots
+        - label: Sonderbauphase bei 5–6 Spielern
+        - label: Statistiken am Spielende (Würfelverteilung …)
+        - label: Neue Szenarien (Nebel/Entdecker, …)
+        - label: Karteneditor im Browser
+        - label: Online mit Freunden ohne eigenen Server (Offline-Version mit P2P)
+        - label: Zug-Timer
+
+  - type: textarea
+    id: other
+    attributes:
+      label: Sonst noch etwas?

@@ -41,7 +41,7 @@ Ein selbst gehostetes **Mehrspieler-Siedlungs- und Handelsspiel auf Hexfeldern**
 ### Mit Docker (empfohlen für den Homeserver)
 
 ```bash
-git clone https://github.com/linluiben/catan.git inselreich
+git clone https://github.com/linluiben/inselreich.git
 cd inselreich
 docker compose up -d --build
 ```
@@ -51,7 +51,7 @@ Danach läuft das Spiel auf `http://<IP-deines-Servers>:3000`.
 ### Ohne Docker (Node.js ≥ 18)
 
 ```bash
-git clone https://github.com/linluiben/catan.git inselreich
+git clone https://github.com/linluiben/inselreich.git
 cd inselreich
 npm install
 npm start          # → http://localhost:3000
@@ -74,6 +74,19 @@ Für den Dauerbetrieb kannst du z. B. `pm2 start server/index.js --name inselrei
 | `ALLOWED_ORIGINS` | *(leer)* | Zusätzlich erlaubte Origins für WebSockets, kommagetrennt |
 | `MAX_CONN_PER_IP` | `20` | Gleichzeitige Verbindungen pro IP |
 | `BOT_DELAY_MS` | `700` | Pause der Bots zwischen ihren Aktionen |
+
+## Offline-Version ohne Server (GitHub Pages)
+
+Die Spiel-Engine läuft auch komplett im Browser. Das ist ideal zum Ausprobieren gegen Bots oder für eine Runde mit mehreren Leuten **an einem Gerät** (Pass-and-Play mit Übergabe-Bildschirm, damit niemand fremde Karten sieht). Der Spielstand bleibt im Browser gespeichert. Editor, Speichern und Laden funktionieren genauso.
+
+- **Online:** Ein GitHub-Workflow veröffentlicht die Version bei jedem Push auf `main` unter `https://linluiben.github.io/inselreich/`. Einmalige Einrichtung:
+  1. In den Repository-Einstellungen unter **Pages → Source** „**GitHub Actions**“ wählen. Bei privaten Repos setzt GitHub Pages ein kostenpflichtiges Konto voraus.
+  2. Die beiden Vorlagen aus [`docs/github-workflows/`](docs/github-workflows/) nach `.github/workflows/` kopieren. Das geht am einfachsten im Browser: **Add file → Create new file**, als Namen `.github/workflows/pages.yml` eingeben, den Inhalt einfügen und committen. Dasselbe für `test.yml`.
+
+     Hintergrund: Workflow-Dateien dürfen nur mit besonderer Berechtigung angelegt werden, deshalb liegen sie hier als Vorlage.
+- **Lokal:** `npm run build:static` erzeugt `dist/`. Den Ordner kann jeder statische Webserver ausliefern, z. B. `npx serve dist`.
+
+Online mit Freunden geht damit noch **nicht**, dafür braucht es den Server oder später eine P2P-Erweiterung (siehe [Roadmap](docs/ROADMAP.md)).
 
 ## Mit anderen spielen
 
@@ -216,13 +229,9 @@ Aufbau:
 - `server/index.js`: HTTP- und WebSocket-Server, Räume, Speicherung
 - `server/security.js`: Passwort, Ratenbegrenzung, Origin-Prüfung, Sicherheits-Header
 - `public/`: Browser-Client (Vanilla JS, SVG-Spielbrett, ohne Build-Schritt)
+- `public/local.js` und `scripts/build-static.js`: Offline-Version, bei der der „Server“ im Browser läuft
 
-**Noch nicht umgesetzt** (gute Ideen für später):
-
-- „Sonderbauphase“ für 5–6 Spieler
-- Gegenangebote im Spielerhandel
-- Nebel-/Entdeckerszenarien
-- Szenario-Editor im Browser für komplett neue Karten (Felder und Zahlen eines bestehenden Bretts lassen sich bereits ändern)
+Geplantes und bekannte Grenzen stehen in der **[Roadmap](docs/ROADMAP.md)**. Rückmeldungen nach einer Runde bitte über den **[Feedback-Bogen](docs/FEEDBACK.md)** bzw. das Issue-Formular „🎲 Feedback“.
 
 ## Ähnliche Projekte
 
