@@ -511,7 +511,7 @@ function build(st, seat, a, free) {
   if (!free && !st.rolled) fail('Erst würfeln.');
   const p = st.players[seat];
   const what = a.what;
-  if (!COST[what] || what === 'dev') fail('Unbekanntes Bauwerk.');
+  if (!['road', 'ship', 'settlement', 'city'].includes(what)) fail('Unbekanntes Bauwerk.');
   if (p.pieces[what] <= 0) fail(`Du hast keine ${PIECE_DE[what]} mehr übrig.`);
   if (!free && !hasRes(p.res, COST[what])) fail('Dafür fehlen dir Rohstoffe.');
   const id = Number(a.id);

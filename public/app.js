@@ -53,7 +53,7 @@ function connect() {
     S.queue.splice(0).forEach(m => ws.send(JSON.stringify(m)));
   };
   ws.onmessage = (e) => onMsg(JSON.parse(e.data));
-  ws.onclose = () => { setTimeout(connect, 1500); };
+  ws.onclose = () => { S.board = null; setTimeout(connect, 1500); };
 }
 function send(m) {
   if (S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify(m));
@@ -70,6 +70,9 @@ function onMsg(m) {
       showScreen('room');
       break;
     case 'room':
+      // Das Brett schickt der Server nur, wenn es sich geändert hat
+      if (m.board) S.board = m.board;
+      if (m.game) m.game.board = S.board;
       S.room = m.room;
       S.game = m.game;
       renderAll();
@@ -534,6 +537,7 @@ function renderPlayers() {
         ${g.longestRoad === p.seat ? '<span class="badge" title="Längste Handelsstraße (+2)">Straße +2</span>' : ''}
         ${g.largestArmy === p.seat ? '<span class="badge" title="Größte Rittermacht (+2)">Ritter +2</span>' : ''}
         ${p.bonusVP ? `<span class="badge" title="Inselbonus">🏝️ +${p.bonusVP}</span>` : ''}
+        ${isHost() && p.seat !== g.you && !p.bot ? `<button class="small ghost" data-a="release" data-seat="${p.seat}" title="Platz freigeben (z. B. für ein anderes Gerät): danach kann man ihn mit genau diesem Namen übernehmen">🔓</button>` : ''}
         ${isHost() && p.seat !== g.you ? `<button class="small ghost" data-a="toggleBot" data-seat="${p.seat}" title="${p.bot ? 'Bot entfernen (Mensch übernimmt)' : 'Bot übernimmt diesen Platz'}">${p.bot ? '👤' : '🤖'}</button>` : ''}
       </span></div>`;
   }).join('') + `<div class="hint" style="font-size:.8em">Ziel: ${g.scenario.vpTarget} SP · ${esc(g.scenario.name)} · Bank: ${RES.map(k => EMOJI[k] + g.bank[k]).join(' ')} · 📜${g.devDeckCount}</div>`;
@@ -541,6 +545,8 @@ function renderPlayers() {
 $('players').onclick = (e) => {
   const b = e.target.closest('[data-a="toggleBot"]');
   if (b) send({ t: 'toggleBot', seat: Number(b.dataset.seat) });
+  const r = e.target.closest('[data-a="release"]');
+  if (r && confirm('Platz freigeben? Die Verbindung des Spielers wird getrennt; danach kann er (z. B. auf einem anderen Gerät) mit genau seinem Namen wieder beitreten.')) send({ t: 'release', seat: Number(r.dataset.seat) });
 };
 
 function picker(id, opts = {}) {
