@@ -10,14 +10,14 @@ Die Reihenfolge ist ein Vorschlag. Nach den ersten Runden soll sie anhand des [F
   - Strenge Prüfung geladener Spielstände, gehärteter Docker-Container
 - Code-Review: Absturz durch kaputte URLs und durch Bot-Ausnahmen behoben, Plätze lassen sich nicht mehr kapern, weniger Datenverkehr
 - Offline-Version für GitHub Pages: Bots und mehrere Menschen an einem Gerät
-- Vorlagen für GitHub Actions (Tests, Pages), Feedback-Formular
+- GitHub Actions (Tests, Pages), Feedback-Formular
 - 📋 Stellungscode: Stellung als kurzer Text oder Link kopieren und daraus ein Spiel erstellen
 
 ## 🎯 Phase 1: Erste Runden mit Freunden (nächste Schritte)
 | Aufgabe | Wer | Aufwand |
 |---|---|---|
-| Offene PRs der Reihe nach mergen, `main` als Standard-Branch | du | 5 min |
-| GitHub Pages aktivieren: Vorlagen aus `docs/github-workflows/` nach `.github/workflows/` kopieren (siehe README) | du | 5 min |
+| ~~PRs mergen, `main` als Standard-Branch, GitHub Pages aktivieren~~ | du | ✅ |
+| Node-Version in `.github/workflows/*.yml` auf 24 anheben (passend zum Dockerfile) | du | 2 min |
 | Tailscale auf dem Homeserver einrichten, `docker compose up -d --build` | du | 30 min |
 | Erste Runden spielen, [Feedback-Bogen](FEEDBACK.md) ausfüllen | alle | – |
 | Docker-Build und Tailscale-Anleitung an echter Hardware prüfen, Lücken in der Doku schließen | gemeinsam | klein |

@@ -12,3 +12,9 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      # Große Node-Sprünge (z. B. 24 -> 25) nicht automatisch vorschlagen:
+      # nicht jede Node-Version ist eine langfristig unterstützte LTS-Version.
+      # Patch- und Minor-Updates (Sicherheitsfixes) kommen weiterhin.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]

@@ -80,11 +80,7 @@ Für den Dauerbetrieb kannst du z. B. `pm2 start server/index.js --name inselrei
 
 Die Spiel-Engine läuft auch komplett im Browser. Das ist ideal zum Ausprobieren gegen Bots oder für eine Runde mit mehreren Leuten **an einem Gerät** (Pass-and-Play mit Übergabe-Bildschirm, damit niemand fremde Karten sieht). Der Spielstand bleibt im Browser gespeichert. Editor, Speichern und Laden funktionieren genauso.
 
-- **Online:** Ein GitHub-Workflow veröffentlicht die Version bei jedem Push auf `main` unter `https://linluiben.github.io/inselreich/`. Einmalige Einrichtung:
-  1. In den Repository-Einstellungen unter **Pages → Source** „**GitHub Actions**“ wählen. Bei privaten Repos setzt GitHub Pages ein kostenpflichtiges Konto voraus.
-  2. Die beiden Vorlagen aus [`docs/github-workflows/`](docs/github-workflows/) nach `.github/workflows/` kopieren. Das geht am einfachsten im Browser: **Add file → Create new file**, als Namen `.github/workflows/pages.yml` eingeben, den Inhalt einfügen und committen. Dasselbe für `test.yml`.
-
-     Hintergrund: Workflow-Dateien dürfen nur mit besonderer Berechtigung angelegt werden, deshalb liegen sie hier als Vorlage.
+- **Online:** Der Workflow `.github/workflows/pages.yml` veröffentlicht die Version bei jedem Push auf `main` unter **https://linluiben.github.io/inselreich/**. Voraussetzung ist einmalig Settings → Pages → Source: „GitHub Actions“.
 - **Lokal:** `npm run build:static` erzeugt `dist/`. Den Ordner kann jeder statische Webserver ausliefern, z. B. `npx serve dist`.
 
 Online mit Freunden geht damit noch **nicht**, dafür braucht es den Server oder später eine P2P-Erweiterung (siehe [Roadmap](docs/ROADMAP.md)).
