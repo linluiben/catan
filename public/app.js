@@ -286,8 +286,10 @@ function renderAll() {
   if (!r) return;
   if (r.local && g && g.phase !== 'ended' && r.seats.filter(s => !s.bot).length > 1 && S.lastYou !== undefined && r.you !== S.lastYou && r.you !== null) {
     // Pass-and-Play: Gerät weitergeben, bevor die Karten des nächsten Spielers sichtbar werden
+    const offer = r.viewReason === 'trade' && g.trade ? g.trade : null;
     $('overlayBox').innerHTML = `<h2>👉 Weitergeben an ${esc(r.seats[r.you].name)}</h2>
-      <p>${esc(r.seats[r.you].name)} ist jetzt dran. Erst aufdecken, wenn nur diese Person auf den Bildschirm schaut.</p>
+      <p>${offer ? `🤝 <strong>${esc(g.players[offer.from].name)}</strong> bietet einen Handel an: ${costText(offer.give)} gegen ${costText(offer.get)}. Jetzt entscheidet ${esc(r.seats[r.you].name)}: annehmen oder ablehnen.`
+        : `${esc(r.seats[r.you].name)} ist jetzt dran.`} Erst aufdecken, wenn nur diese Person auf den Bildschirm schaut.</p>
       <button data-close class="primary">Ich bin ${esc(r.seats[r.you].name)} – aufdecken</button>`;
     $('overlay').hidden = false;
     $('overlay').classList.add('opaque');
