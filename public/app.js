@@ -140,7 +140,11 @@ async function loadInfo() {
 }
 async function loadRooms() {
   try {
-    const list = await (await fetch('api/rooms?pw=' + encodeURIComponent(getPw()))).json();
+    if (S.info && S.info.roomList === false) {
+      $('roomList').innerHTML = '<li class="hint">Die Raumliste ist auf diesem Server ausgeblendet. Lass dir den Raum-Code oder Einladungslink geben.</li>';
+      return;
+    }
+    const list = await (await fetch('api/rooms', { headers: { 'X-Server-Password': getPw() } })).json();
     $('roomList').innerHTML = list.length ? list.map(r => `
       <li><div><strong>${esc(r.name)}</strong> <span class="code">${r.id}</span>
       <small>${esc(r.scenario)} · ${r.players.map(esc).join(', ') || '–'} · ${r.ended ? 'beendet' : r.started ? 'läuft' : 'wartet'}</small></div>
@@ -171,6 +175,7 @@ $('createBtn').onclick = () => {
 $('joinBtn').onclick = () => joinRoom($('codeInput').value);
 $('codeInput').onkeydown = (e) => { if (e.key === 'Enter') joinRoom($('codeInput').value); };
 $('refreshBtn').onclick = loadRooms;
+$('pwInput').onchange = loadRooms;
 $('roomList').onclick = (e) => { const b = e.target.closest('[data-join]'); if (b) joinRoom(b.dataset.join); };
 $('loadFile').onchange = (e) => readJsonFile(e.target, (state) => {
   const name = requireName();

@@ -875,24 +875,149 @@ function viewFor(st, seat) {
   };
 }
 
-// Geladenen Zustand grob prüfen und reparieren
-function validateLoaded(st) {
-  if (!st || typeof st !== 'object' || !st.board || !Array.isArray(st.players) || !st.board.hexes) fail('Ungültige Spielstand-Datei.');
-  if (st.players.length < 1 || st.players.length > 6) fail('Spielstand: 1–6 Spieler erforderlich.');
-  st.buildings = st.buildings || {}; st.roads = st.roads || {}; st.ships = st.ships || {};
-  st.pending = st.pending || []; st.log = st.log || []; st.logSeq = st.logSeq || st.log.length;
-  st.players.forEach((p, i) => {
-    p.seat = i;
-    p.res = Object.assign(emptyRes(), p.res || {});
-    p.dev = p.dev || []; p.knights = p.knights || 0;
-    p.pieces = p.pieces || { road: 15, settlement: 5, city: 4, ship: st.scenario && st.scenario.seafarers ? 15 : 0 };
-    p.homeIslands = p.homeIslands || []; p.bonusIslands = p.bonusIslands || []; p.bonusVP = p.bonusVP || 0;
-    p.color = p.color || COLORS[i];
+// Geladenen Spielstand prüfen und in einen sauberen Zustand überführen.
+// Es werden nur bekannte Felder mit geprüften Typen übernommen – eine manipulierte
+// Datei kann so weder HTML einschleusen noch die Engine zum Absturz bringen.
+const HEX_TYPES = ['sea', 'desert', 'gold', ...RES];
+const NUMBERS = [2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
+const PENDING_TYPES = ['discard', 'gold', 'robber', 'steal', 'roadBuilding'];
+function validateLoaded(raw) {
+  const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);
+  if (!isObj(raw) || !isObj(raw.board) || !Array.isArray(raw.players)) fail('Ungültige Spielstand-Datei.');
+  const rb = raw.board;
+  if (!Array.isArray(rb.hexes) || !Array.isArray(rb.vertices) || !Array.isArray(rb.edges)) fail('Ungültige Spielstand-Datei (Spielbrett).');
+  const n = raw.players.length;
+  if (n < 1 || n > 6) fail('Spielstand: 1–6 Spieler erforderlich.');
+  const nh = rb.hexes.length, nv = rb.vertices.length, ne = rb.edges.length;
+  if (!nh || nh > 1000 || nv > 3000 || ne > 4000) fail('Spielbrett hat eine ungültige Größe.');
+  const int = (v, d = 0, min = -Infinity, max = Infinity) => {
+    const x = Number(v);
+    return Number.isInteger(x) && x >= min && x <= max ? x : d;
+  };
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const arr = (a) => (Array.isArray(a) ? a : []);
+  const okH = (x) => Number.isInteger(x) && x >= 0 && x < nh;
+  const okV = (x) => Number.isInteger(x) && x >= 0 && x < nv;
+  const okE = (x) => Number.isInteger(x) && x >= 0 && x < ne;
+  const okS = (x) => Number.isInteger(x) && x >= 0 && x < n;
+  const ints = (a, ok) => arr(a).map(Number).filter(ok);
+  const seatOrNull = (x) => (okS(x) ? x : null);
+
+  const board = {
+    hexes: rb.hexes.map((h, i) => {
+      h = isObj(h) ? h : {};
+      const hex = {
+        id: i, q: int(h.q), r: int(h.r), x: num(h.x), y: num(h.y),
+        type: HEX_TYPES.includes(h.type) ? h.type : 'sea',
+        number: NUMBERS.includes(Number(h.number)) ? Number(h.number) : null,
+        vertices: ints(h.vertices, okV), edges: ints(h.edges, okE),
+      };
+      if (hex.vertices.length !== 6 || hex.edges.length !== 6) fail('Spielbrett ist beschädigt.');
+      if (hex.type === 'sea' || hex.type === 'desert') hex.number = null;
+      return hex;
+    }),
+    vertices: rb.vertices.map((v, i) => {
+      v = isObj(v) ? v : {};
+      return { id: i, x: num(v.x), y: num(v.y), hexes: ints(v.hexes, okH), edges: ints(v.edges, okE), adj: ints(v.adj, okV) };
+    }),
+    edges: rb.edges.map((e, i) => {
+      e = isObj(e) ? e : {};
+      const ev = ints(e.v, okV);
+      if (ev.length !== 2) fail('Spielbrett ist beschädigt.');
+      return { id: i, v: ev, hexes: ints(e.hexes, okH) };
+    }),
+    harbors: arr(rb.harbors).filter(isObj)
+      .map(h => ({ hex: Number(h.hex), edge: Number(h.edge), type: h.type === 'any' || RES.includes(h.type) ? h.type : null }))
+      .filter(h => okH(h.hex) && okE(h.edge) && h.type),
+    robber: okH(Number(rb.robber)) && rb.robber !== null ? Number(rb.robber) : null,
+    pirate: okH(Number(rb.pirate)) && rb.pirate !== null ? Number(rb.pirate) : null,
+  };
+  computeIslands(board);
+
+  const rs = isObj(raw.scenario) ? raw.scenario : {};
+  const key = typeof rs.key === 'string' && SCENARIOS[rs.key] ? rs.key : 'classic';
+  const scenario = {
+    key, name: String(rs.name || SCENARIOS[key].name).replace(/[<>]/g, '').slice(0, 80),
+    seafarers: !!rs.seafarers, islandBonus: int(rs.islandBonus, 0, 0, 5), vpTarget: int(rs.vpTarget, 10, 3, 30),
+  };
+  const res = (r) => { const o = emptyRes(); if (isObj(r)) RES.forEach(k => { o[k] = int(r[k], 0, 0, 999); }); return o; };
+
+  const players = raw.players.map((p, i) => {
+    p = isObj(p) ? p : {};
+    const pc = isObj(p.pieces) ? p.pieces : {};
+    return {
+      seat: i,
+      name: String(p.name || `Spieler ${i + 1}`).replace(/[<>]/g, '').trim().slice(0, 24) || `Spieler ${i + 1}`,
+      color: /^#[0-9a-fA-F]{6}$/.test(p.color) ? p.color : COLORS[i],
+      bot: !!p.bot,
+      res: res(p.res),
+      dev: arr(p.dev).filter(d => isObj(d) && DEV_DE[d.type]).map(d => ({ type: d.type, turn: int(d.turn, 0, 0) })),
+      knights: int(p.knights, 0, 0, 99),
+      pieces: {
+        road: int(pc.road, 15, 0, 15), settlement: int(pc.settlement, 5, 0, 5),
+        city: int(pc.city, 4, 0, 4), ship: scenario.seafarers ? int(pc.ship, 15, 0, 15) : 0,
+      },
+      homeIslands: ints(p.homeIslands, x => Number.isInteger(x) && x >= 0),
+      bonusIslands: ints(p.bonusIslands, x => Number.isInteger(x) && x >= 0),
+      bonusVP: int(p.bonusVP, 0, 0, 30),
+    };
   });
-  if (!st.board.islandOf) computeIslands(st.board);
-  st.roadLengths = st.roadLengths || st.players.map(() => 0);
-  if (st.longestRoad === undefined) st.longestRoad = null;
-  if (st.largestArmy === undefined) st.largestArmy = null;
+
+  const buildings = {}, roads = {}, ships = {};
+  if (isObj(raw.buildings)) for (const k of Object.keys(raw.buildings)) {
+    const b = raw.buildings[k], v = Number(k);
+    if (okV(v) && isObj(b) && okS(b.owner) && (b.type === 'settlement' || b.type === 'city')) buildings[v] = { owner: b.owner, type: b.type };
+  }
+  if (isObj(raw.roads)) for (const k of Object.keys(raw.roads)) {
+    const e = Number(k);
+    if (okE(e) && okS(raw.roads[k])) roads[e] = raw.roads[k];
+  }
+  if (isObj(raw.ships)) for (const k of Object.keys(raw.ships)) {
+    const e = Number(k), sh = raw.ships[k];
+    if (okE(e) && isObj(sh) && okS(sh.owner) && roads[e] === undefined) ships[e] = { owner: sh.owner, turn: int(sh.turn, 0, 0) };
+  }
+
+  let phase = ['setup', 'play', 'ended'].includes(raw.phase) ? raw.phase : 'play';
+  let setup = null;
+  if (phase === 'setup' && isObj(raw.setup)) {
+    const order = ints(raw.setup.order, okS);
+    const idx = int(raw.setup.idx, 0, 0);
+    if (order.length && idx < order.length) {
+      setup = {
+        order, idx, step: raw.setup.step === 'road' ? 'road' : 'settlement',
+        lastVertex: okV(Number(raw.setup.lastVertex)) && raw.setup.lastVertex !== null ? Number(raw.setup.lastVertex) : null,
+      };
+      if (setup.step === 'road' && setup.lastVertex === null) setup.step = 'settlement';
+    }
+  }
+  if (phase === 'setup' && !setup) phase = 'play';
+
+  const pending = arr(raw.pending).filter(x => isObj(x) && PENDING_TYPES.includes(x.type)).map(x => {
+    if (x.type === 'discard' || x.type === 'gold') {
+      const need = {};
+      if (isObj(x.need)) for (const k of Object.keys(x.need)) { const s2 = Number(k); const v = int(x.need[k], 0, 1, 99); if (okS(s2) && v) need[s2] = v; }
+      return { type: x.type, need };
+    }
+    if (x.type === 'steal') return { type: 'steal', seat: int(x.seat, -1), targets: ints(x.targets, okS) };
+    if (x.type === 'roadBuilding') return { type: 'roadBuilding', seat: int(x.seat, -1), left: int(x.left, 0, 0, 2) };
+    return { type: 'robber', seat: int(x.seat, -1) };
+  }).filter(x => (x.need ? Object.keys(x.need).length : okS(x.seat)) && (!x.targets || x.targets.length));
+
+  const bank = res(raw.bank);
+  const dice = Array.isArray(raw.dice) && raw.dice.length === 2 ? raw.dice.map(d => int(d, 1, 1, 6)) : null;
+  const st = {
+    version: 1, scenario, board, players, buildings, roads, ships, bank,
+    devDeck: arr(raw.devDeck).filter(d => typeof d === 'string' && DEV_DE[d]),
+    phase, setup,
+    turn: int(raw.turn, 0, 0, n - 1), turnNumber: int(raw.turnNumber, 1, 0),
+    rolled: !!raw.rolled, dice, pending,
+    devPlayed: !!raw.devPlayed, shipMoved: !!raw.shipMoved, trade: null,
+    longestRoad: seatOrNull(raw.longestRoad), largestArmy: seatOrNull(raw.largestArmy), roadLengths: players.map(() => 0),
+    log: arr(raw.log).slice(-300).filter(isObj).map((l, i) => ({ n: int(l.n, i + 1, 0), t: String(l.t || '').slice(0, 300) })),
+    logSeq: 0, winner: seatOrNull(raw.winner), editor: !!raw.editor,
+  };
+  st.logSeq = Math.max(int(raw.logSeq, 0, 0), ...st.log.map(l => l.n), 0);
+  if (st.phase === 'ended' && st.winner === null) st.phase = 'play';
   updateSpecials(st);
   return st;
 }

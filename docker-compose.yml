@@ -4,14 +4,35 @@ services:
     container_name: inselreich
     restart: unless-stopped
     ports:
+      # Direkt erreichbar im Heimnetz:
       - "3000:3000"
+      # Hinter einem Reverse Proxy (Caddy/nginx auf demselben Rechner) stattdessen nur lokal öffnen:
+      # - "127.0.0.1:3000:3000"
     environment:
-      # Optional: Passwort, damit nur deine Freunde Räume sehen/erstellen können
+      # Passwort, damit nur deine Freunde Räume erstellen/betreten können (bei Internet-Zugang unbedingt setzen!)
       SERVER_PASSWORD: ""
+      # Raumliste auf der Startseite anzeigen (zeigt Spielernamen). Für Internet-Zugang: "false"
+      ROOM_LIST: "true"
+      # Räume ohne Aktivität werden nach so vielen Tagen samt Chat gelöscht
+      ROOM_TTL_DAYS: "30"
+      # Höchstzahl gleichzeitiger Räume
+      MAX_ROOMS: "50"
+      # Hinter einem Reverse Proxy auf "true" setzen (echte Client-IP für Ratenbegrenzung)
+      TRUST_PROXY: "false"
       # Wartezeit der Bots zwischen Aktionen in ms
       BOT_DELAY_MS: "700"
     volumes:
       - inselreich-data:/data
+    # Härtung: Container darf nichts außer /data schreiben und keine Rechte erlangen
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    pids_limit: 100
 
 volumes:
   inselreich-data:

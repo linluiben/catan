@@ -8,10 +8,11 @@ const { WebSocketServer } = require('ws');
 const G = require('./game');
 const Bot = require('./bot');
 const { listScenarios, SCENARIOS, shuffle } = require('./maps');
+const Sec = require('./security');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const PASSWORD = process.env.SERVER_PASSWORD || '';
+const PASSWORD = Sec.CONFIG.password;
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const BOT_DELAY = Number(process.env.BOT_DELAY_MS) || 700;
@@ -56,7 +57,7 @@ function loadRooms() {
         seats: d.seats.map(s => ({ ...s, ws: new Set() })), game: d.game, chat: d.chat || [],
         spectators: new Set(), botTimer: null, updated: d.updated || Date.now(),
       };
-      if (room.game) G.validateLoaded(room.game);
+      if (room.game) room.game = G.validateLoaded(room.game);
       rooms.set(room.id, room);
     } catch (e) { console.error('Raum konnte nicht geladen werden:', f, e.message); }
   }
@@ -71,13 +72,19 @@ function deleteRoom(room) {
 // ------------------------------------------------------------ HTTP
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json' };
 const server = http.createServer((req, res) => {
+  for (const [k, v] of Object.entries(Sec.SECURITY_HEADERS)) res.setHeader(k, v);
+  if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/api/info') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ scenarios: listScenarios(), passwordRequired: !!PASSWORD }));
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ scenarios: listScenarios(), passwordRequired: !!PASSWORD, roomList: Sec.CONFIG.roomList }));
   }
   if (url.pathname === '/api/rooms') {
-    if (PASSWORD && url.searchParams.get('pw') !== PASSWORD) { res.writeHead(401); return res.end('[]'); }
+    res.setHeader('Cache-Control', 'no-store');
+    if (!Sec.CONFIG.roomList) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end('[]'); }
+    // Passwort im Header (nicht in der URL, damit es nicht in Proxy-Logs landet)
+    const pw = Sec.checkPassword(Sec.clientIp(req), req.headers['x-server-password']);
+    if (!pw.ok) { res.writeHead(401, { 'Content-Type': 'application/json' }); return res.end('[]'); }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify([...rooms.values()].map(roomSummary)));
   }
@@ -101,7 +108,16 @@ function roomSummary(r) {
 }
 
 // ------------------------------------------------------------ WebSocket
-const wss = new WebSocketServer({ server, maxPayload: 4 * 1024 * 1024 });
+const wss = new WebSocketServer({
+  server,
+  maxPayload: 2 * 1024 * 1024, // reicht für große Spielstände
+  verifyClient: (info, cb) => {
+    if (!Sec.originAllowed(info.req)) return cb(false, 403, 'Origin nicht erlaubt');
+    const e = Sec.ipEntry(Sec.clientIp(info.req));
+    if (e.conns >= Sec.CONFIG.maxConnPerIp) return cb(false, 429, 'Zu viele Verbindungen');
+    cb(true);
+  },
+});
 
 function send(ws, msg) { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 
@@ -155,15 +171,26 @@ const COLORS = G.COLORS;
 function freeColor(room) { return COLORS.find(c => !room.seats.some(s => s.color === c)) || COLORS[room.seats.length % COLORS.length]; }
 const cleanName = (n) => String(n || '').replace(/[<>]/g, '').trim().slice(0, 20);
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   ws.room = null; ws.seat = null; ws.isAlive = true;
+  ws.ip = Sec.clientIp(req);
+  const ipE = Sec.ipEntry(ws.ip);
+  ipE.conns++;
+  ws.bucket = new Sec.Bucket(15, 40); // max. ~15 Nachrichten/s, kurze Spitzen bis 40
+  ws.strikes = 0;
   ws.on('pong', () => { ws.isAlive = true; });
+  ws.on('close', () => { ipE.conns = Math.max(0, ipE.conns - 1); });
   ws.on('message', (raw) => {
+    if (!ws.bucket.take()) {
+      if (++ws.strikes > 50) ws.terminate();
+      return;
+    }
     let m;
     try { m = JSON.parse(raw); } catch { return; }
+    if (!m || typeof m !== 'object') return;
     try { handle(ws, m); } catch (e) {
       console.error(e);
-      send(ws, { t: 'error', msg: 'Serverfehler: ' + e.message });
+      send(ws, { t: 'error', msg: 'Interner Serverfehler.' });
     }
   });
   ws.on('close', () => detach(ws));
@@ -191,7 +218,17 @@ function attach(ws, room, seat) {
 function handle(ws, m) {
   const err = (msg) => send(ws, { t: 'error', msg });
   if (m.t === 'create' || m.t === 'join') {
-    if (PASSWORD && m.password !== PASSWORD) return err('Falsches Server-Passwort.');
+    // Wer ein gültiges Platz-Token hat, war schon berechtigt (Wiederverbinden ohne Passwort)
+    const r = m.t === 'join' && rooms.get(String(m.room || '').toUpperCase());
+    const hasToken = r && m.token && r.seats.some(s => Sec.safeEqual(s.token, m.token));
+    if (!hasToken) {
+      const pw = Sec.checkPassword(ws.ip, m.password);
+      if (!pw.ok) return err(pw.msg);
+    }
+  }
+  if (m.t === 'create') {
+    if (rooms.size >= Sec.CONFIG.maxRooms) return err('Der Server hat die maximale Anzahl an Räumen erreicht. Bitte alte Räume löschen.');
+    if (!Sec.ipEntry(ws.ip).creates.take()) return err('Bitte warte kurz, bevor du weitere Räume erstellst.');
   }
   if (m.t === 'create') {
     const name = cleanName(m.name);
@@ -227,7 +264,7 @@ function handle(ws, m) {
     if (!room) return err('Raum nicht gefunden.');
     // Wiederverbinden per Token
     if (m.token) {
-      const idx = room.seats.findIndex(s => s.token === m.token);
+      const idx = room.seats.findIndex(s => Sec.safeEqual(s.token, m.token));
       if (idx >= 0) return attach(ws, room, idx);
     }
     const name = cleanName(m.name);
@@ -392,7 +429,7 @@ setInterval(() => {
 
 // Alte, verlassene Räume aufräumen (30 Tage)
 setInterval(() => {
-  const limit = Date.now() - 30 * 24 * 3600 * 1000;
+  const limit = Date.now() - Sec.CONFIG.roomTtlDays * 24 * 3600 * 1000;
   for (const r of rooms.values()) {
     if (r.updated < limit && !r.seats.some(s => s.ws.size)) deleteRoom(r);
   }
@@ -402,5 +439,5 @@ loadRooms();
 for (const r of rooms.values()) scheduleBots(r);
 server.listen(PORT, HOST, () => {
   console.log(`Inselreich läuft auf http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-  if (PASSWORD) console.log('Server-Passwort ist aktiv.');
+  console.log(`Server-Passwort: ${PASSWORD ? 'aktiv' : 'AUS'} · Raumliste: ${Sec.CONFIG.roomList ? 'sichtbar' : 'versteckt'} · Räume werden nach ${Sec.CONFIG.roomTtlDays} Tagen Inaktivität gelöscht`);
 });

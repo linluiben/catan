@@ -67,6 +67,12 @@ Für den Dauerbetrieb kannst du z. B. `pm2 start server/index.js --name inselrei
 | `HOST` | `0.0.0.0` | Adresse, auf der gelauscht wird |
 | `DATA_DIR` | `./data` | Speicherort der Räume/Spielstände |
 | `SERVER_PASSWORD` | *(leer)* | Wenn gesetzt, brauchen alle Spieler dieses Passwort |
+| `ROOM_LIST` | `true` | Raumliste mit Spielernamen auf der Startseite zeigen. Im Internet auf `false` setzen |
+| `ROOM_TTL_DAYS` | `30` | Inaktive Räume werden nach so vielen Tagen samt Chat gelöscht |
+| `MAX_ROOMS` | `50` | Höchstzahl gleichzeitiger Räume |
+| `TRUST_PROXY` | `false` | Hinter einem Reverse Proxy auf `true` setzen (echte IP für die Ratenbegrenzung) |
+| `ALLOWED_ORIGINS` | *(leer)* | Zusätzlich erlaubte Origins für WebSockets, kommagetrennt |
+| `MAX_CONN_PER_IP` | `20` | Gleichzeitige Verbindungen pro IP |
 | `BOT_DELAY_MS` | `700` | Pause der Bots zwischen ihren Aktionen |
 
 ## Mit anderen spielen
@@ -83,6 +89,9 @@ Wer die Verbindung verliert oder den Browser schließt, kommt über denselben Li
 Die anderen öffnen einfach `http://<lokale-IP-des-Servers>:3000`, z. B. `http://192.168.1.20:3000`.
 
 ### Über das Internet
+
+> 🔒 **Ausführliche Anleitung mit Datenschutz-Abwägung: [docs/ZUGANG-UND-DATENSCHUTZ.md](docs/ZUGANG-UND-DATENSCHUTZ.md).**
+> Kurz gesagt: Für eine feste Freundesgruppe nimm **Tailscale**, da musst du keine Ports öffnen. Für Gäste ohne Installation nimm **HTTPS über Caddy** zusammen mit `SERVER_PASSWORD` und `ROOM_LIST=false`.
 
 Es gibt drei Möglichkeiten, von der einfachsten zur „richtigsten“:
 
@@ -135,6 +144,18 @@ User=inselreich
 [Install]
 WantedBy=multi-user.target
 ```
+
+## Datenschutz & Sicherheit
+
+- **Keine Konten, Cookies, Tracker oder externen Inhalte:** Der Browser spricht nur mit deinem Server.
+- **Gespeichert** werden nur selbst gewählte Spielernamen, Chat und Spielstand. Inaktive Räume werden nach `ROOM_TTL_DAYS` Tagen gelöscht, der Gastgeber kann sie jederzeit selbst löschen. IP-Adressen werden nie auf die Platte geschrieben.
+- **Schutzmechanismen:**
+  - Server-Passwort, Sperre nach Fehlversuchen, Ratenbegrenzung
+  - Origin-Prüfung für WebSockets, strenge Content-Security-Policy
+  - strikte Prüfung geladener Spielstände
+  - gehärteter Docker-Container
+
+Details und eine Checkliste stehen in [docs/ZUGANG-UND-DATENSCHUTZ.md](docs/ZUGANG-UND-DATENSCHUTZ.md).
 
 ## Von einer bestimmten Stellung starten
 
@@ -193,6 +214,7 @@ Aufbau:
 - `server/maps.js`: Spielfelder, Kartengenerator, Geometrie (Felder, Ecken, Kanten)
 - `server/bot.js`: einfacher Computergegner
 - `server/index.js`: HTTP- und WebSocket-Server, Räume, Speicherung
+- `server/security.js`: Passwort, Ratenbegrenzung, Origin-Prüfung, Sicherheits-Header
 - `public/`: Browser-Client (Vanilla JS, SVG-Spielbrett, ohne Build-Schritt)
 
 **Noch nicht umgesetzt** (gute Ideen für später):
