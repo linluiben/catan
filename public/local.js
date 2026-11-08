@@ -160,7 +160,15 @@
         if (seat === null || seat === undefined) return err('Kein menschlicher Spieler am Tisch.');
         const r = G.act(room.game, seat, m.action || {});
         if (!r.ok) err(r.error);
-        else { room.botsPaused = false; room.botFails = 0; }
+        else {
+          room.botsPaused = false; room.botFails = 0;
+          const a = m.action || {};
+          if (a.type === 'edit' && a.op === 'reorder') {
+            const order = a.order.map(Number);
+            room.seats = order.map(i => room.seats[i]);
+            room.viewer = order.indexOf(room.viewer);
+          }
+        }
         return broadcast();
       }
       case 'export':
@@ -204,6 +212,13 @@
         if (!s.bot && room.seats.filter(x => !x.bot).length <= 1) return err('Mindestens ein Mensch muss mitspielen.');
         s.bot = !s.bot;
         if (room.game) room.game.players[i].bot = s.bot;
+        return broadcast();
+      }
+      case 'moveSeat': {
+        if (room.game) return err('Im laufenden Spiel bitte den Editor benutzen.');
+        const i = Number(m.seat), j = i + (m.dir < 0 ? -1 : 1);
+        if (!room.seats[i] || !room.seats[j]) return err('Ungültig.');
+        [room.seats[i], room.seats[j]] = [room.seats[j], room.seats[i]];
         return broadcast();
       }
       case 'color': {
