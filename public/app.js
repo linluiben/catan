@@ -84,6 +84,7 @@ function onMsg(m) {
       if (!S.room && S.roomId) { delete tokens[S.roomId]; saveTokens(); S.roomId = null; showScreen('lobby'); }
       break;
     case 'export': download(m.state, m.name); break;
+    case 'positionCode': showCodeOverlay(m.code); break;
     case 'kicked':
       toast(m.msg || 'Du wurdest aus dem Raum entfernt.');
       leaveToLobby();
@@ -112,6 +113,45 @@ function toast(msg, info) {
   t.className = 'show' + (info ? ' info' : '');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.className = ''; }, 3500);
+}
+
+function copyText(text, okMsg) {
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove();
+    if (ok) toast(okMsg, true); else prompt('Zum Kopieren markieren (Strg+C):', text);
+  };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(() => toast(okMsg, true), fallback);
+  else fallback();
+}
+
+function showCodeOverlay(code) {
+  const link = location.origin + location.pathname + '#pos=' + code;
+  $('overlayBox').innerHTML = `<h2>📋 Stellungscode</h2>
+    <p class="hint">Dieser Code enthält die komplette aktuelle Stellung inklusive <strong>aller Handkarten</strong>. Jeder kann daraus auf der Startseite ein neues Spiel erstellen, auch in der Offline-Version.</p>
+    <textarea class="code-box" readonly id="codeOut">${esc(code)}</textarea>
+    <div class="hint">${code.length} Zeichen</div>
+    <div class="btns row"><button class="primary" data-copy="code">Code kopieren</button><button data-copy="link">Link kopieren</button></div>
+    ${isHost() ? `<div class="section-title" style="margin-top:14px">Andere Stellung in diesen Raum laden</div>
+    <textarea id="codeIn" rows="3" placeholder="IR1.… einfügen" spellcheck="false"></textarea>
+    <div class="btns row"><button data-loadcode>Laden (ersetzt das laufende Spiel)</button></div>` : ''}
+    <div class="btns row" style="margin-top:10px"><button data-close>Schließen</button></div>`;
+  $('overlay').hidden = false;
+  $('overlayBox').querySelector('[data-copy="code"]').onclick = () => copyText(code, 'Stellungscode kopiert.');
+  $('overlayBox').querySelector('[data-copy="link"]').onclick = () => copyText(link, 'Link kopiert – wer ihn öffnet, kann die Stellung direkt starten.');
+  const lc = $('overlayBox').querySelector('[data-loadcode]');
+  if (lc) lc.onclick = () => {
+    const c = $('codeIn').value.trim();
+    if (!c) return toast('Bitte einen Code einfügen.');
+    if (!confirm('Stellung laden? Das laufende Spiel wird ersetzt.')) return;
+    send({ t: 'load', code: c });
+    $('overlay').hidden = true;
+  };
+  $('codeOut').onclick = (e) => e.target.select();
 }
 
 function download(state, name) {
@@ -183,6 +223,13 @@ $('createBtn').onclick = () => {
   send({ t: 'create', name, password: getPw(), roomName: $('roomNameInput').value, scenario: $('scenarioSelect').value, vpTarget: Number($('vpInput').value) || undefined });
 };
 $('joinBtn').onclick = () => joinRoom($('codeInput').value);
+$('createFromCodeBtn').onclick = () => {
+  const code = $('posCodeInput').value.trim();
+  if (!code) { toast('Bitte zuerst einen Stellungscode einfügen.'); $('posCodeInput').focus(); return; }
+  const name = requireName();
+  if (!name) return;
+  send({ t: 'create', name, password: getPw(), roomName: $('roomNameInput').value || 'Stellung aus Code', code });
+};
 $('codeInput').onkeydown = (e) => { if (e.key === 'Enter') joinRoom($('codeInput').value); };
 $('refreshBtn').onclick = loadRooms;
 $('pwInput').onchange = loadRooms;
@@ -203,6 +250,7 @@ $('roomCode').onclick = () => {
   navigator.clipboard?.writeText(url).then(() => toast('Einladungslink kopiert: ' + url, true), () => prompt('Einladungslink:', url));
 };
 $('exportBtn').onclick = () => send({ t: 'export' });
+$('codeBtn').onclick = () => send({ t: 'positionCode' });
 $('editorBtn').onclick = () => act({ type: 'edit', op: 'toggle' });
 $('helpBtn').onclick = showHelp;
 $('overlay').onclick = (e) => {
@@ -251,6 +299,7 @@ function renderAll() {
   $('editorBtn').hidden = !(isHost() && g);
   $('editorBtn').classList.toggle('active', !!(g && g.editor));
   $('exportBtn').hidden = !(g && (isHost() || g.phase === 'ended'));
+  $('codeBtn').hidden = !(g && (isHost() || g.phase === 'ended'));
   $('loadInGame').hidden = !isHost();
   $('waiting').hidden = !!g;
   if (!g || g.editor || !(g.legal || {}).myTurn) { if (S.mode && !(g && g.editor)) S.mode = null; }
@@ -895,10 +944,28 @@ function showHelp() {
   $('overlay').hidden = false;
 }
 
+// Link mit #pos=… füllt den Stellungscode auf der Startseite vor (der Hash wird nie an den Server geschickt)
+function takePositionFromHash() {
+  const m = location.hash.match(/^#pos=(.+)$/);
+  if (!m) return;
+  let code;
+  try { code = decodeURIComponent(m[1]); } catch { code = m[1]; }
+  history.replaceState(null, '', location.pathname + location.search);
+  if (S.room) {
+    if (!confirm('Dieser Link enthält eine Stellung. Raum verlassen, um sie zu starten?')) return;
+    send({ t: 'leave' });
+  }
+  showScreen('lobby');
+  $('posCodeInput').value = code;
+  setTimeout(() => { toast('Stellung aus Link erkannt – Namen eingeben und „Aus Code erstellen“ klicken.', true); $('posCodeInput').scrollIntoView({ block: 'center' }); }, 300);
+}
+
 // ------------------------------------------------------------------ Start
 (function init() {
   try { $('nameInput').value = localStorage.getItem('inselreich_name') || ''; } catch { /* */ }
   loadInfo().then(loadRooms);
+  takePositionFromHash();
+  window.addEventListener('hashchange', takePositionFromHash);
   const params = new URLSearchParams(location.search);
   const code = (params.get('room') || '').toUpperCase();
   connect();

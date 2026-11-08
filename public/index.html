@@ -41,8 +41,13 @@
         <label>Siegpunkte <input id="vpInput" type="number" min="3" max="30" placeholder="Standard"></label>
         <button id="createBtn" class="primary">Raum erstellen</button>
         <h3>…oder von einer Stellung starten</h3>
-        <p class="hint">Lade eine zuvor exportierte Spielstand-Datei (<code>.json</code>). Das Spiel wird genau an dieser Stelle fortgesetzt. Eigene Stellungen kannst du im Spiel mit dem ✏️ Editor bauen.</p>
-        <label class="file">📂 Spielstand laden <input id="loadFile" type="file" accept=".json,application/json"></label>
+        <p class="hint">Füge einen Stellungscode ein (im Spiel über <strong>📋 Code</strong> erzeugt) oder lade eine Spielstand-Datei. Das Spiel wird genau an dieser Stelle fortgesetzt. Eigene Stellungen baust du im Spiel mit dem ✏️ Editor.</p>
+        <label>Stellungscode einfügen
+          <textarea id="posCodeInput" rows="3" placeholder="IR1.… oder Link mit #pos=…" spellcheck="false"></textarea></label>
+        <div class="row">
+          <button id="createFromCodeBtn">📋 Aus Code erstellen</button>
+          <label class="file">📂 Datei laden <input id="loadFile" type="file" accept=".json,application/json"></label>
+        </div>
       </div>
     </div>
     <footer class="foot">Inselreich – freies Hobbyprojekt. Nicht verbunden mit kommerziellen Brettspielverlagen.</footer>
@@ -59,6 +64,7 @@
       <div id="statusLine"></div>
       <div class="tb-right">
         <button id="editorBtn" class="small ghost" hidden title="Freie Stellung bearbeiten">✏️ Editor</button>
+        <button id="codeBtn" class="small ghost" hidden title="Stellung als kopierbaren Code teilen oder einen Code laden">📋 Code</button>
         <button id="exportBtn" class="small ghost" hidden title="Spielstand als Datei speichern">💾 Speichern</button>
         <label id="loadInGame" class="small ghost file" hidden title="Spielstand in diesen Raum laden">📂<input id="loadFile2" type="file" accept=".json,application/json"></label>
         <button id="helpBtn" class="small ghost" title="Spielregeln">?</button>

@@ -2,7 +2,7 @@
 
 Die Reihenfolge ist ein Vorschlag. Nach den ersten Runden soll sie anhand des [Feedbacks](FEEDBACK.md) neu sortiert werden.
 
-## ✅ Erledigt (PRs #1–#4)
+## ✅ Erledigt
 - Komplettes Spiel: Grundregeln, Seefahrt, 6 Spielfelder, Bots, Editor, Speichern/Laden
 - Härtung für den Internetbetrieb:
   - Passwort mit Sperre nach Fehlversuchen
@@ -11,6 +11,7 @@ Die Reihenfolge ist ein Vorschlag. Nach den ersten Runden soll sie anhand des [F
 - Code-Review: Absturz durch kaputte URLs und durch Bot-Ausnahmen behoben, Plätze lassen sich nicht mehr kapern, weniger Datenverkehr
 - Offline-Version für GitHub Pages: Bots und mehrere Menschen an einem Gerät
 - Vorlagen für GitHub Actions (Tests, Pages), Feedback-Formular
+- 📋 Stellungscode: Stellung als kurzer Text oder Link kopieren und daraus ein Spiel erstellen
 
 ## 🎯 Phase 1: Erste Runden mit Freunden (nächste Schritte)
 | Aufgabe | Wer | Aufwand |

@@ -31,6 +31,7 @@ Ein selbst gehostetes **Mehrspieler-Siedlungs- und Handelsspiel auf Hexfeldern**
 
 - **Von einer bestimmten Stellung starten**:
   - **✏️ Editor** für den Gastgeber: Gebäude, Straßen und Schiffe für jeden Spieler setzen oder entfernen, Räuber und Pirat versetzen, Feldtypen und Zahlen ändern, Rohstoff- und Entwicklungskarten verteilen, Ritter, Bonuspunkte und Siegpunktziel einstellen. Danach legst du mit **„Hier starten“** fest, wer am Zug ist
+  - **📋 Stellungscode**: Die aktuelle Stellung wird zu einem kurzen Text (ca. 1 000 Zeichen) oder Link. Man kopiert ihn in den Chat und erstellt daraus mit einem Klick ein neues Spiel, auf dem Server oder in der Offline-Version
   - **💾 Speichern / 📂 Laden**: Der komplette Spielstand ist eine JSON-Datei. Du kannst ihn in einen neuen Raum laden (Startseite) oder in einen laufenden Raum
 - **Automatische Speicherung**: Räume und Spiele überstehen einen Server-Neustart. Spieler verbinden sich automatisch neu
 - Läuft auf dem **Handy, Tablet und PC**. Chat und Spielverlauf sind eingebaut
@@ -184,7 +185,14 @@ Details und eine Checkliste stehen in [docs/ZUGANG-UND-DATENSCHUTZ.md](docs/ZUGA
 4. Spieler auswählen, der am Zug ist (optional „hat schon gewürfelt“), und **▶️ Hier starten** klicken.
 5. Mit **💾 Speichern** sicherst du die Stellung, um sie später erneut zu laden.
 
-**Variante B – Datei laden:**
+**Variante B – Stellungscode (am bequemsten zum Teilen):**
+- Der Gastgeber klickt im Spiel auf **📋 Code**. Es erscheint ein kurzer Code (`IR1.…`, ca. 700–1 300 Zeichen) mit den Knöpfen **Code kopieren** und **Link kopieren**.
+- Den Code fügt man auf der Startseite unter **„Stellungscode einfügen“** ein und klickt auf **Aus Code erstellen**. Mit dem Link geht es noch schneller: Wer ihn öffnet, findet den Code schon vorausgefüllt vor.
+- Der Code enthält das Spielbrett, alle Figuren, Handkarten (auch Entwicklungskarten), Bank, Räuber/Pirat und wessen Zug es ist. Weil er alle Handkarten verrät, kann ihn während des Spiels nur der Gastgeber erzeugen.
+- Server-Version und Offline-Version verwenden dasselbe Format, die Codes sind also austauschbar.
+- Zeilenumbrüche aus Messengern stören nicht.
+
+**Variante C – Datei laden:**
 - Auf der Startseite **📂 Spielstand laden** wählen. Es entsteht ein neuer Raum mit genau dieser Stellung. Mitspieler treten mit **demselben Namen** bei, der in der Datei steht, und übernehmen so ihren Platz.
 - Oder im laufenden Raum als Gastgeber oben auf 📂 klicken.
 
